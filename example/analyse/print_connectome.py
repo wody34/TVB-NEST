@@ -96,7 +96,7 @@ def display_connectome(param, image=None, alpha_image=0.4, threshold=1.0, size_e
 
         # create the graph and print it
         fig, ax = plt.subplots(figsize=(9.5, 6))
-        G = nx.from_numpy_matrix(weights_threshold)
+        G = nx.from_numpy_array(weights_threshold)
         nx.draw(G, width=size_edges, pos=Nposition, edge_color='#909089', ax=ax, node_color=color_nodes,
                 node_size=size_nodes,
                 node_shape='o', alpha=alpha_node)
