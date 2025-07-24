@@ -653,3 +653,76 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 2. **Phase 2**: Additional YAML configs can be tested and validated
 3. **Phase 3**: Shell scripts can be deprecated once all YAML configs are confirmed working
 4. **Long-term**: Integrate YAML test system into main orchestrator workflow
+
+## Git Workflow and Fork Management
+
+### Fork-Based Development Setup
+
+**Repository Configuration**:
+- **Origin**: Personal fork (https://github.com/wody34/TVB-NEST.git)
+- **Upstream**: Original repository (https://github.com/multiscale-cosim/TVB-NEST.git)
+
+### Daily Development Workflow
+
+#### New Feature Development:
+```bash
+# Create feature branch
+git checkout -b feature/your-feature-name
+
+# Make changes and commit
+git add .
+git commit -m "Implement new feature"
+
+# Push to your fork
+git push origin feature/your-feature-name
+
+# Create Pull Request on GitHub
+```
+
+#### Keeping Fork Synchronized:
+```bash
+# Fetch latest changes from original repository
+git fetch upstream
+
+# Switch to master branch
+git checkout master
+
+# Merge upstream changes
+git merge upstream/master
+
+# Push updated master to your fork
+git push origin master
+```
+
+### Commit Strategy Guidelines
+
+**Logical Grouping Approach**:
+1. **Cleanup commits**: Remove temporary files, logs, simulation outputs
+2. **Core functionality**: Update main simulation modules (NEST, TVB interfaces)
+3. **Translation layer**: Enhance data transformation between simulators
+4. **Testing updates**: Improve test suite and validation scripts
+5. **Examples/documentation**: Update demonstrations and examples
+6. **Configuration**: Update project settings, submodules, parameters
+
+**Example Commit Messages**:
+```bash
+git commit -m "Clean up simulation output files and logs
+
+- Remove generated simulation data files (.dat, .npy)
+- Clean up log files from short simulation runs
+- These files should be generated during runtime, not tracked in git"
+
+git commit -m "Update core simulation modules
+
+- Improve Zerlaut model implementation in both NEST and TVB
+- Enhance co-simulation interface for parallel processing
+- Refactor simulation logic for better performance"
+```
+
+### Best Practices
+
+- **Small, focused commits**: Each commit should address one logical change
+- **Descriptive messages**: Use clear, actionable commit messages
+- **Regular synchronization**: Keep fork updated with upstream changes
+- **Feature branches**: Use separate branches for each new feature or fix
+- **Clean history**: Squash related commits before creating Pull Requests
