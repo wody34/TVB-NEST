@@ -17,7 +17,7 @@ def input(path,nb_mpi):
     path_to_files = path
     #For NEST
     # Init connection
-    print("Waiting for port details")
+    print(f"Waiting for port details {nb_mpi}, {path_to_files}")
     info = MPI.INFO_NULL
     root=0
     port = MPI.Open_port(info)
@@ -44,8 +44,8 @@ def input(path,nb_mpi):
             comm.Recv([size_list, 1, MPI.INT], source=status_.Get_source(), tag=0, status=status_)
             if size_list[0] != 0:
                 print("size list id",size_list);sys.stdout.flush()
-                list_id = np.empty(size_list, dtype='i')
-                comm.Recv([list_id, size_list, MPI.INT], source=status_.Get_source(), tag=0, status=status_)
+                list_id = np.empty(size_list[0], dtype='i')
+                comm.Recv([list_id, size_list[0], MPI.INT], source=status_.Get_source(), tag=0, status=status_)
                 print(" id ", list_id);sys.stdout.flush()
                 print(" source "+str(status_.Get_source()));sys.stdout.flush()
                 shape = np.random.randint(0,50,1,dtype='i')*2

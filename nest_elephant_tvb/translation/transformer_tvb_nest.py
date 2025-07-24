@@ -188,9 +188,9 @@ def _send(comm_sender, databuffer, logger, generator, id_first_spike_detector):
                 # NOTE: in 'test_receive_tvb_to_nest.py': hardcoded 10
                 comm_sender.Recv([size_list, 1, MPI.INT], source=rank, tag=0, status=status_)
                 if size_list[0] != 0:
-                    list_id = np.empty(size_list, dtype='i')
+                    list_id = np.empty(size_list[0], dtype='i')
                     # NOTE: in 'test_receive_tvb_to_nest.py': hardcoded np.arange(0,10,1)
-                    comm_sender.Recv([list_id, size_list, MPI.INT], source=status_.Get_source(), tag=0, status=status_)
+                    comm_sender.Recv([list_id, size_list[0], MPI.INT], source=status_.Get_source(), tag=0, status=status_)
                     # Select the good spike train and send it
                     # logger.info(" TVB to Nest:"+str(data))
                     logger.info("rank "+str(rank)+" list_id "+str(list_id))

@@ -40,8 +40,8 @@ def input(path):
             size_list = np.empty(1, dtype='i')
             comm.Recv([size_list, 1, MPI.INT], source=0, tag=0, status=status_)
             print("size list id",size_list);sys.stdout.flush()
-            list_id = np.empty(size_list, dtype='i')
-            comm.Recv([list_id, size_list, MPI.INT], source=0, tag=0, status=status_)
+            list_id = np.empty(size_list[0], dtype='i')
+            comm.Recv([list_id, size_list[0], MPI.INT], source=0, tag=0, status=status_)
             print(" id ", list_id);sys.stdout.flush()
             shape = np.random.randint(0,50,1,dtype='i')*2
             data = starting+np.random.rand(shape[0])*200

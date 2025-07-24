@@ -44,10 +44,10 @@ def input(path):
             comm.Recv([size_list, 1, MPI.INT], source=source, tag=0, status=status_)
             print("INPUT : size list id",size_list);sys.stdout.flush()
             if size_list[0] != 0:
-                list_id = np.empty(size_list, dtype='i')
-                comm.Recv([list_id, size_list, MPI.INT], source=source, tag=0, status=status_)
+                list_id = np.empty(size_list[0], dtype='i')
+                comm.Recv([list_id, size_list[0], MPI.INT], source=source, tag=0, status=status_)
                 print("INPUT :  id ", list_id);sys.stdout.flush()
-                shape = np.random.randint(0,100,1,dtype='i')
+                shape = np.random.randint(0,100,1)
                 data = starting+np.random.rand(shape[0])*200
                 data = np.around(np.sort(np.array(data,dtype='d')),decimals=1)
                 send_shape = np.array(np.concatenate([shape,shape]),dtype ='i')

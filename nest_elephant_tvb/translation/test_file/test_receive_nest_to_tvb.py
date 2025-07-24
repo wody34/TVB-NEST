@@ -40,8 +40,8 @@ def simulate_TVB_reception(path):
         size=np.empty(1,dtype='i')
         comm.Recv([size, MPI.INT], source=1, tag=0)
         # get the rate
-        rates = np.empty(size, dtype='d')
-        comm.Recv([rates,size, MPI.DOUBLE],source=1,tag=MPI.ANY_TAG,status=status_)
+        rates = np.empty(size[0], dtype='d')
+        comm.Recv([rates,size[0], MPI.DOUBLE],source=1,tag=MPI.ANY_TAG,status=status_)
         # print the summary of the data
         if status_.Get_tag() == 0:
             print("TVB INPUT :",comm.Get_rank(),times,np.sum(rates));sys.stdout.flush()

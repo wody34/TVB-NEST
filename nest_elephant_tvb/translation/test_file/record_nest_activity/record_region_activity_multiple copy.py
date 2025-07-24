@@ -38,17 +38,12 @@ def analyse(path,nb_mpi):
     source_sending = np.arange(0,comm.Get_remote_size(),1) # list of all the process for the commmunication
     while(True):
         comm.Recv([check, 1, MPI.CXX_BOOL], source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status_)
-        first_source = status_.Get_source()
-        print(f"received {check} from {first_source} in {gid}" if gid=="4" else "", flush=True)
-
         print(f" start to send in {gid}" if gid=="4" else "", flush=True)
         print(f" status a tag {status_.Get_tag()} source {status_.Get_source()}" if gid=="4" else "", flush=True)
         if status_.Get_tag() == 0:
-            
+            for i in range(nb_mpi-1):
+                comm.Recv([check, 1, MPI.CXX_BOOL], source=MPI.ANY_SOURCE, tag=0, status=status_)
             for source in source_sending:
-                if source != first_source:
-                    comm.Recv([check, 1, MPI.CXX_BOOL], source=source, tag=MPI.ANY_TAG, status=status_)
-                    print(f"received {check} from {source} in {gid}" if gid=="4" else "", flush=True)
                 print(f"source is {source} in {gid}" if gid=="4" else "", flush=True)
                 comm.Send([np.array(True,dtype='b'),MPI.BOOL],dest=source,tag=0)
                 shape = np.empty(1, dtype='i')
@@ -56,12 +51,16 @@ def analyse(path,nb_mpi):
                 print(f"shape is {shape[0]} in {gid}" if gid=="4" else "", flush=True)
                 data = np.empty(shape[0], dtype='d')
                 comm.Recv([data, shape[0], MPI.DOUBLE], source=status_.Get_source(), tag=0, status=status_)
-                print(f"data is {data} in {gid} with source {source}" if gid=="4" else "", flush=True)
-                if shape[0] > 0:
-                    # The data is a flattened array of (recorder_gid, sender_gid, time_ms)
-                    # We reshape it and add it to our list for later processing.
-                    reshaped_data = data.reshape(-1, 3)
-                    received_spikes.extend(reshaped_data.tolist())
+                
+                # We expect data in triplets (recorder_gid, sender_gid, time_ms).
+                # Only process arrays where the size is a multiple of 3.
+                if data.size > 0 and data.size % 3 == 0:
+                    received_spikes.extend(data.reshape(-1, 3).tolist())
+                elif data.size > 0:
+                    # Log unexpected data sizes for debugging, but don't try to process them.
+                    print(f"Warning: Received data of unexpected size {data.size} from source {source}. Content: {data}. Skipping.", file=sys.stderr)
+                
+                print(f"source: {source} data received: {data.size} elements" if gid=="4" else "", flush=True)
         elif status_.Get_tag() == 1:
             print("end run", flush=True)
         elif status_.Get_tag() ==2:

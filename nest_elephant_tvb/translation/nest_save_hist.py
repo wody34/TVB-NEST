@@ -4,12 +4,74 @@
 import numpy as np
 import json
 from mpi4py import MPI
-from threading import Thread
+from threading import Thread, Lock
 import pathlib
 import time
-from nest_elephant_tvb.translation.nest_to_tvb import receive,store_data,lock_status,create_logger
+from nest_elephant_tvb.translation.science_nest_to_tvb import store_data
+from nest_elephant_tvb.translation.nest_to_tvb import create_logger
 
-def save(path,logger,nb_step,step_save,status_data,buffer):
+def receive(logger, store, status_data, buffer, comm_receiver, lock_status):
+    """
+    Receive data from the Nest simulation and put it in the shared buffer.
+    """
+    status = MPI.Status()
+    count = 0 # step counter
+    
+    while True:
+        check = np.empty(1, dtype='b')
+        # Probing first to get tag and source without consuming the message
+        try:
+            if comm_receiver.Iprobe(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status) == False:
+                time.sleep(0.001)
+                continue
+        except MPI.Exception:
+            logger.info("Receive: MPI Exception, probably disconnected. Exiting.")
+            break
+            
+        tag = status.Get_tag()
+        source = status.Get_source()
+        
+        # Now, receive the message
+        comm_receiver.Recv([check, 1, MPI.CXX_BOOL], source=source, tag=tag, status=status)
+
+        if tag == 0: # data is coming
+            # send confirmation
+            comm_receiver.Send([np.array(True, dtype='b'), MPI.BOOL], dest=source, tag=0)
+            # receive shape
+            shape = np.empty(1, dtype='i')
+            comm_receiver.Recv([shape, 1, MPI.INT], source=source, tag=0, status=status)
+            # receive data
+            data = np.empty(shape[0], dtype='d')
+            comm_receiver.Recv([data, MPI.DOUBLE], source=source, tag=0, status=status)
+            
+            while status_data[0] != 1:
+                time.sleep(0.001)
+            
+            with lock_status:
+                status_data[0] = 0 # busy
+            
+            store.add_spikes(count, data)
+            buffer[0] = store.return_data()
+            
+            with lock_status:
+                status_data[0] = 2 # ready
+                
+        elif tag == 1: # end of step
+            logger.info(f"Receive: End of step {count}")
+            count += 1
+            
+        elif tag == 2: # end of simulation
+            logger.info("Receive: End of simulation signal received.")
+            with lock_status:
+                status_data[0] = 3 # signal to stop `save` thread
+            break
+        else:
+            logger.error(f"Receive: Unknown tag {tag}")
+    
+    logger.info("Receive thread finished.")
+
+
+def save(path,logger,nb_step,step_save,status_data,buffer, lock_status):
     '''
     WARNING never ending
     :param path:  folder which will contain the configuration file
@@ -26,9 +88,14 @@ def save(path,logger,nb_step,step_save,status_data,buffer):
     while count<nb_step: # FAT END POINT
         logger.info("Nest save : save "+str(count))
         # send the rate when there ready
-        while status_data[0] != 0 and status_data[0] != 2: # FAT END POINT
+        while status_data[0] == 1:
             time.sleep(0.1)
+            if status_data[0] == 3: # End signal from receive
+                break
             pass
+        if status_data[0] == 3: # End signal from receive
+            logger.info('Save : get ending signal')
+            break
         if buffer_save is None:
             logger.info("buffer initialise buffer : "+str(count))
             buffer_save = buffer[0]
@@ -71,6 +138,7 @@ if __name__ == "__main__":
         # variable for communication between thread
         status_data=[1] # status of the buffer
         buffer=[np.array([])]
+        lock_status = Lock()
 
         # object for analysing data
         store=store_data(path_folder_config,param)
@@ -101,8 +169,8 @@ if __name__ == "__main__":
         logger_receive = create_logger(path_folder_config, 'nest_to_tvb_receive', level_log)
         logger_save = create_logger(path_folder_config, 'nest_to_tvb_send', level_log)
         th_receive = Thread(target=receive,
-                            args=(logger_receive, store, status_data, buffer, comm_receiver))
-        th_save = Thread(target=save, args=(path_folder_save,logger_save,nb_step,step_save,status_data,buffer))
+                            args=(logger_receive, store, status_data, buffer, comm_receiver, lock_status))
+        th_save = Thread(target=save, args=(path_folder_save,logger_save,nb_step,step_save,status_data,buffer, lock_status))
 
         # start the threads
         # FAT END POINT
