@@ -10,3 +10,69 @@ lib/
 */*/*.simg
 ./timer/test_file/
 ./tests/test_nest_MPI_threading/files/*
+*.npy
+*.log
+*.png
+*.txt
+*.txt.unlock
+*.dat
+*.csv
+*.mdc
+
+# MACOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE and Editor files
+.vscode/
+.cursor/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb_checkpoints/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.coverage
+
+# Development and testing artifacts  
+spike_test/
+tests/test_co-sim/
+reassemble_and_verify.py
+verify_spike_data.py
+visualize.py
+visualize_spikes*.ipynb
+SpikeVisualization.ipynb
+
+# Simulation output directories (dynamic links)
+example/analyse/analyse
+example/long_simulation/long_simulation  
+example/parameter/parameter
+example/short_simulation/short_simulation
+nest_elephant_tvb/analyse
+nest_elephant_tvb/long_simulation
+nest_elephant_tvb/parameter
+nest_elephant_tvb/short_simulation
+
+# Temporary and backup files
+*.tmp
+*.temp
+*.bak
+*.backup
+*~
+*.orig
+*.rej
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
