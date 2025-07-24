@@ -1,0 +1,76 @@
+name: co_simulation
+description: Full TVB-NEST co-simulation test with multiple MPI/thread configurations
+version: '1.0'
+environment:
+  mpi_command: mpirun
+  timeout: 1800
+  base_directory: /home/tests
+  temp_directory_prefix: test_co_sim
+setup:
+  create_directories:
+  - temp_directory
+  cleanup_on_exit: true
+  environment_variables:
+  - source: tests/init.sh
+test_matrix:
+  configurations:
+  - name: single_process
+    mpi_processes: 1
+    threads: 1
+    description: Single process, single thread baseline
+  - name: multi_process_single_thread
+    mpi_processes: 4
+    threads: 1
+    description: Multiple MPI processes, single thread each
+  - name: hybrid_mpi_thread
+    mpi_processes: 4
+    threads: 2
+    description: Hybrid MPI + threading configuration
+  - name: full_parallel
+    mpi_processes: 4
+    threads: 4
+    description: Full parallelization test
+processes:
+- name: co_simulation_test
+  description: Main co-simulation test runner
+  script: tests/run_co-sim_test.py
+  mpi:
+    processes: '{matrix.mpi_processes}'
+  arguments:
+  - '{temp_directory}/'
+  - '{matrix.mpi_processes}'
+  - '{matrix.threads}'
+  - 'false'
+  execution:
+    mode: foreground
+    matrix_execution: true
+validation:
+  per_configuration:
+    success_criteria:
+    - all_processes_exit_zero: true
+    - simulation_output_generated: true
+    - min_execution_time: 30.0
+    - max_execution_time: 600.0
+  overall:
+    success_criteria:
+    - all_configurations_pass: true
+    - performance_regression_check: true
+  failure_actions:
+    collect_logs: true
+    preserve_temp_files: true
+    generate_performance_report: true
+performance:
+  metrics:
+  - execution_time: true
+  - memory_usage: true
+  - mpi_communication_overhead: true
+  - scalability_analysis: true
+  benchmarking:
+    baseline_configuration: single_process
+    expected_speedup_threshold: 1.5
+logging:
+  level: INFO
+  file: '{temp_directory}/co_simulation_test.log'
+  per_configuration_logs: true
+  include_process_output: true
+  include_performance_metrics: true

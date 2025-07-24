@@ -1,0 +1,74 @@
+name: record_nest_spike
+description: Test NEST spike recording functionality via MPI
+version: '1.0'
+environment:
+  mpi_command: mpirun
+  timeout: 300
+  base_directory: /home/tests
+  temp_directory_prefix: test_nest_record
+setup:
+  create_directories:
+  - temp_directory
+  cleanup_on_exit: true
+  environment_variables:
+  - source: tests/init.sh
+processes:
+- name: spike_activity_recorder_1
+  description: Records neural spike activity data (first recorder)
+  script: nest_elephant_tvb/translation/test_file/record_nest_activity/record_region_activity.py
+  mpi:
+    processes: 1
+  communication:
+    type: file
+    file: 3.txt
+    role: consumer
+  execution:
+    mode: background
+    start_delay: 0
+- name: spike_activity_recorder_2
+  description: Records neural spike activity data (second recorder)
+  script: nest_elephant_tvb/translation/test_file/record_nest_activity/record_region_activity.py
+  mpi:
+    processes: 1
+  communication:
+    type: file
+    file: 4.txt
+    role: consumer
+  execution:
+    mode: background
+    start_delay: 0.1
+- name: spike_detector_coordinator
+  description: NEST spike detector coordinating the recording test
+  script: tests/test_nest_file/spikedetector_mpi.py
+  mpi:
+    processes: 1
+  communication:
+    type: none
+  execution:
+    mode: foreground
+    depends_on:
+    - spike_activity_recorder_1
+    - spike_activity_recorder_2
+    start_delay: 0.5
+validation:
+  success_criteria:
+    all_processes_exit_zero: true
+    spike_data_recorded: true
+    recording_synchronization: true
+    min_execution_time: 3.0
+    max_execution_time: 60.0
+  failure_actions:
+    collect_logs: true
+    preserve_temp_files: true
+    dump_spike_data: true
+    generate_report: true
+monitoring:
+  spike_recording_metrics: true
+  data_integrity_checks: true
+  synchronization_monitoring: true
+logging:
+  level: INFO
+  file: '{temp_directory}/spike_recording_test.log'
+  include_process_output: true
+  include_mpi_communication: true
+  include_spike_statistics: true

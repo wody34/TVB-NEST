@@ -1,0 +1,62 @@
+# NEST Current Input Test Configuration
+# Replaces: tests/test_input_nest_current.sh
+
+name: "input_nest_current"
+description: "Test NEST current input communication via MPI"
+version: "1.0"
+
+environment:
+  mpi_command: "mpirun"
+  timeout: 20
+  base_directory: "/home/tests"
+  temp_directory_prefix: "test_nest_current"
+  
+setup:
+  create_directories:
+    - temp_directory
+  cleanup_on_exit: true
+  environment_variables:
+    - source: "tests/init.sh"
+
+processes:
+  - name: "current_input_producer"
+    description: "Generates current input data and sends via MPI"
+    script: "nest_elephant_tvb/translation/test_file/input_nest_current/input_current.py"
+    mpi:
+      processes: 1
+    communication:
+      type: "file"
+      file: "4.txt"
+      role: "producer"
+    execution:
+      mode: "background"
+      start_delay: 0
+      
+  - name: "step_current_generator"
+    description: "NEST step current generator coordinating the test"
+    script: "tests/test_nest_file/step_current_generator_mpi.py"
+    mpi:
+      processes: 1
+    communication:
+      type: "none"
+    execution:
+      mode: "foreground"
+      depends_on: ["current_input_producer"]
+      start_delay: 0.5
+
+validation:
+  success_criteria:
+    all_processes_exit_zero: true
+    min_execution_time: 3.0
+    max_execution_time: 60.0
+    
+  failure_actions:
+    collect_logs: true
+    preserve_temp_files: true
+    generate_report: true
+
+logging:
+  level: "INFO"
+  file: "{temp_directory}/test_execution.log"
+  include_process_output: true
+  include_mpi_communication: true

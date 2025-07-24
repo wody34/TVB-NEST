@@ -1,0 +1,89 @@
+name: nest_save
+description: Test NEST histogram saving functionality with MPI communication
+version: '1.0'
+environment:
+  mpi_command: mpirun
+  timeout: 600
+  base_directory: /home/tests
+  temp_directory_prefix: test_nest_to_save
+setup:
+  create_directories:
+  - temp_directory
+  - '{temp_directory}/input'
+  - '{temp_directory}/log'
+  copy_files:
+  - source: tests/init_spikes.npy
+    destination: '{temp_directory}/init_spikes.npy'
+    required: false
+  create_parameter_file:
+    path: '{temp_directory}/parameter.json'
+    content:
+      delay: 1000.0
+      simulation_time: 2000.0
+      save_interval: 100.0
+  cleanup_on_exit: true
+  environment_variables:
+  - source: tests/init.sh
+processes:
+- name: nest_histogram_saver
+  description: NEST histogram saving process
+  script: nest_elephant_tvb/translation/nest_save_hist.py
+  mpi:
+    processes: 2
+  communication:
+    type: file
+    file: input/0.txt
+    role: consumer
+  arguments:
+  - '{temp_directory}/input/0.txt'
+  - '{temp_directory}/parameter.json'
+  execution:
+    mode: background
+    start_delay: 0
+- name: nest_data_producer
+  description: Generates NEST data for histogram saving
+  script: nest_elephant_tvb/translation/test_file/test_input_nest_to_tvb.py
+  mpi:
+    processes: 1
+  communication:
+    type: file
+    file: input/0.txt
+    role: producer
+  arguments:
+  - '{temp_directory}/input/0.txt'
+  - '1000.0'
+  execution:
+    mode: background
+    depends_on:
+    - nest_histogram_saver
+    start_delay: 1.0
+execution:
+  wait_for_all: true
+  synchronization_delay: 2.0
+  process_startup_interval: 0.5
+validation:
+  success_criteria:
+    all_processes_exit_zero: true
+    histogram_files_generated: true
+    parameter_file_processed: true
+    data_integrity_check: true
+    min_execution_time: 15.0
+    max_execution_time: 180.0
+  failure_actions:
+    collect_logs: true
+    preserve_temp_files: true
+    preserve_histogram_data: true
+    dump_communication_files: true
+    generate_debug_report: true
+monitoring:
+  histogram_generation_monitoring: true
+  data_saving_progress: true
+  file_size_monitoring: true
+  parameter_validation: true
+logging:
+  level: DEBUG
+  file: '{temp_directory}/log/nest_save_test.log'
+  include_process_output: true
+  include_mpi_communication: true
+  include_histogram_metrics: true
+  include_parameter_details: true

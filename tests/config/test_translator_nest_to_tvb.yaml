@@ -1,0 +1,94 @@
+name: translator_nest_to_tvb
+description: Test translation pipeline from NEST spikes to TVB rates
+version: '1.0'
+environment:
+  mpi_command: mpirun
+  timeout: 600
+  base_directory: /home/tests
+  temp_directory_prefix: test_nest_to_tvb
+setup:
+  create_directories:
+  - temp_directory
+  - '{temp_directory}/input'
+  - '{temp_directory}/output'
+  - '{temp_directory}/log'
+  copy_files:
+  - source: tests/init_spikes.npy
+    destination: '{temp_directory}/init_spikes.npy'
+    required: false
+  cleanup_on_exit: true
+  environment_variables:
+  - source: tests/init.sh
+processes:
+- name: nest_to_tvb_translator
+  description: Main translation process converting NEST spikes to TVB rates
+  script: nest_elephant_tvb/translation/nest_to_tvb.py
+  mpi:
+    processes: 2
+  communication:
+    type: file_pair
+    input_file: input/0.txt
+    output_file: output/0.txt
+    role: translator
+  execution:
+    mode: background
+    start_delay: 0
+- name: nest_spike_producer
+  description: Simulates NEST spike data input
+  script: nest_elephant_tvb/translation/test_file/test_input_nest_to_tvb.py
+  mpi:
+    processes: 1
+  communication:
+    type: file
+    file: input/0.txt
+    role: producer
+  arguments:
+  - '{temp_directory}/input/0.txt'
+  - '1000.0'
+  execution:
+    mode: background
+    start_delay: 0.5
+- name: tvb_rate_consumer
+  description: Receives and validates TVB rate data
+  script: nest_elephant_tvb/translation/test_file/test_receive_nest_to_tvb.py
+  mpi:
+    processes: 1
+  communication:
+    type: file
+    file: output/0.txt
+    role: consumer
+  arguments:
+  - '{temp_directory}/output/0.txt'
+  execution:
+    mode: background
+    depends_on:
+    - nest_to_tvb_translator
+    start_delay: 1.0
+execution:
+  wait_for_all: true
+  synchronization_delay: 2.0
+  process_startup_interval: 0.5
+validation:
+  success_criteria:
+    all_processes_exit_zero: true
+    file_size_minimum:
+      output/0.txt: 100
+    translation_data_flow: true
+    min_execution_time: 10.0
+    max_execution_time: 120.0
+  failure_actions:
+    collect_logs: true
+    preserve_temp_files: true
+    dump_communication_files: true
+    generate_debug_report: true
+monitoring:
+  check_interval: 1.0
+  communication_file_monitoring: true
+  process_health_checks: true
+  memory_usage_tracking: false
+logging:
+  level: DEBUG
+  file: '{temp_directory}/log/translation_test.log'
+  include_process_output: true
+  include_mpi_communication: true
+  include_timing_data: true

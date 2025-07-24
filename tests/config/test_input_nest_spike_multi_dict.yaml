@@ -1,0 +1,120 @@
+name: input_nest_spike_multi_dict
+description: Test NEST spike input with multiple MPI configurations and dictionary
+  parameters
+version: '1.0'
+environment:
+  mpi_command: mpirun
+  timeout: 600
+  base_directory: /home/tests
+  temp_directory_prefix: test_nest_spike
+setup:
+  create_directories:
+  - temp_directory
+  cleanup_on_exit: true
+  environment_variables:
+  - source: tests/init.sh
+test_matrix:
+  configurations:
+  - name: single_mpi_dict
+    mpi_processes: 1
+    description: Single MPI process with dictionary parameters
+  - name: multi_mpi_dict
+    mpi_processes: 4
+    description: Multiple MPI processes with dictionary parameters
+processes:
+- name: spike_input_producer_multi_dict
+  description: Multi-process spike data generator with dictionary setup
+  script: nest_elephant_tvb/translation/test_file/spike_nest_input/input_region_activity_multi.py
+  mpi:
+    processes: 1
+  communication:
+    type: file
+    file: 7.txt
+    role: producer
+  arguments:
+  - '{matrix.mpi_processes}'
+  execution:
+    mode: background
+    start_delay: 0
+    matrix_execution: true
+- name: activity_recorder_multi_dict_1
+  description: Multi-process neural activity recorder with dictionary parameters
+  script: nest_elephant_tvb/translation/test_file/record_nest_activity/record_region_activity_multiple.py
+  mpi:
+    processes: 1
+  communication:
+    type: file
+    file: 3.txt
+    role: consumer
+  arguments:
+  - '{matrix.mpi_processes}'
+  execution:
+    mode: background
+    start_delay: 0.1
+    matrix_execution: true
+- name: activity_recorder_multi_dict_2
+  description: Multi-process neural activity recorder with dictionary parameters (second
+    instance)
+  script: nest_elephant_tvb/translation/test_file/record_nest_activity/record_region_activity_multiple.py
+  mpi:
+    processes: 1
+  communication:
+    type: file
+    file: 4.txt
+    role: consumer
+  arguments:
+  - '{matrix.mpi_processes}'
+  execution:
+    mode: background
+    start_delay: 0.2
+    matrix_execution: true
+- name: spike_generator_dict_coordinator
+  description: NEST spike generator with dictionary parameter setup
+  script: tests/test_nest_file/spikegenerator_mpi_dict.py
+  mpi:
+    processes: 1
+  communication:
+    type: none
+  execution:
+    mode: foreground
+    depends_on:
+    - spike_input_producer_multi_dict
+    - activity_recorder_multi_dict_1
+    - activity_recorder_multi_dict_2
+    start_delay: 1.0
+    matrix_execution: true
+validation:
+  per_configuration:
+    success_criteria:
+    - all_processes_exit_zero: true
+    - communication_files_created:
+      - 7.txt
+      - 3.txt
+      - 4.txt
+    - dictionary_parameters_validated: true
+    - multi_process_coordination: true
+    - min_execution_time: 8.0
+    - max_execution_time: 120.0
+  overall:
+    success_criteria:
+    - all_configurations_pass: true
+    - parameter_consistency_check: true
+    - scalability_verification: true
+  failure_actions:
+    collect_logs: true
+    preserve_temp_files: true
+    generate_parameter_report: true
+    generate_scalability_report: true
+performance:
+  metrics:
+  - execution_time: true
+  - mpi_overhead: true
+  - parameter_processing_time: true
+  - process_coordination_efficiency: true
+logging:
+  level: INFO
+  file: '{temp_directory}/multi_spike_dict_test.log'
+  per_configuration_logs: true
+  include_process_output: true
+  include_parameter_validation: true
+  include_performance_metrics: true

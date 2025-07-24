@@ -1,0 +1,76 @@
+name: input_nest_current_multi
+description: Test NEST current input with multiple MPI/thread configurations
+version: '1.0'
+environment:
+  mpi_command: mpirun
+  timeout: 600
+  base_directory: /home/tests
+  temp_directory_prefix: test_nest_current_multi
+setup:
+  create_directories:
+  - temp_directory
+  cleanup_on_exit: true
+  environment_variables:
+  - source: tests/init.sh
+test_matrix:
+  configurations:
+  - name: full_mpi
+    mpi_processes: 4
+    threads: 1
+    description: Full MPI parallelization (4 processes)
+  - name: hybrid_config
+    mpi_processes: 2
+    threads: 2
+    description: Hybrid MPI + threading (2 processes, 2 threads each)
+  - name: thread_only
+    mpi_processes: 1
+    threads: 4
+    description: Thread-only parallelization (1 process, 4 threads)
+processes:
+- name: current_input_producer_multi
+  description: Multiple current input data generator
+  script: nest_elephant_tvb/translation/test_file/input_nest_current/input_current_multiple.py
+  mpi:
+    processes: '{matrix.mpi_processes}'
+  communication:
+    type: file
+    file: 4.txt
+    role: producer
+  execution:
+    mode: background
+    start_delay: 0
+    matrix_execution: true
+- name: step_current_generator_threaded
+  description: NEST step current generator with threading support
+  script: tests/test_nest_file/step_current_generator_mpi_thread.py
+  mpi:
+    processes: '{matrix.mpi_processes}'
+  communication:
+    type: none
+  execution:
+    mode: foreground
+    depends_on:
+    - current_input_producer_multi
+    start_delay: 0.5
+    matrix_execution: true
+validation:
+  per_configuration:
+    success_criteria:
+    - all_processes_exit_zero: true
+    - communication_files_created:
+      - 4.txt
+    - min_execution_time: 5.0
+    - max_execution_time: 120.0
+  overall:
+    success_criteria:
+    - all_configurations_pass: true
+  failure_actions:
+    collect_logs: true
+    preserve_temp_files: true
+    generate_configuration_report: true
+logging:
+  level: INFO
+  file: '{temp_directory}/multi_current_test.log'
+  per_configuration_logs: true
+  include_process_output: true
+  include_performance_metrics: true

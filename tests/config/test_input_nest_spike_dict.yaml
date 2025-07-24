@@ -1,0 +1,81 @@
+name: input_nest_spike_dict
+description: Test NEST spike input communication via MPI using dictionary parameters
+version: '1.0'
+environment:
+  mpi_command: mpirun
+  timeout: 300
+  base_directory: /home/tests
+  temp_directory_prefix: test_nest_spike
+setup:
+  create_directories:
+  - temp_directory
+  cleanup_on_exit: true
+  environment_variables:
+  - source: tests/init.sh
+processes:
+- name: spike_input_producer
+  description: Generates spike data and sends via MPI
+  script: nest_elephant_tvb/translation/test_file/spike_nest_input/input_region_activity.py
+  mpi:
+    processes: 1
+  communication:
+    type: file
+    file: 7.txt
+    role: producer
+  execution:
+    mode: background
+    start_delay: 0
+- name: activity_recorder_1
+  description: Records neural activity data
+  script: nest_elephant_tvb/translation/test_file/record_nest_activity/record_region_activity.py
+  mpi:
+    processes: 1
+  communication:
+    type: file
+    file: 3.txt
+    role: consumer
+  execution:
+    mode: background
+    start_delay: 0.1
+- name: activity_recorder_2
+  description: Records neural activity data (second instance)
+  script: nest_elephant_tvb/translation/test_file/record_nest_activity/record_region_activity.py
+  mpi:
+    processes: 1
+  communication:
+    type: file
+    file: 4.txt
+    role: consumer
+  execution:
+    mode: background
+    start_delay: 0.2
+- name: spike_generator_dict
+  description: NEST spike generator with dictionary parameter setup
+  script: tests/test_nest_file/spikegenerator_mpi_dict.py
+  mpi:
+    processes: 1
+  communication:
+    type: none
+  execution:
+    mode: foreground
+    depends_on:
+    - spike_input_producer
+    - activity_recorder_1
+    - activity_recorder_2
+    start_delay: 1.0
+validation:
+  success_criteria:
+    all_processes_exit_zero: true
+    dictionary_parameters_validated: true
+    min_execution_time: 5.0
+    max_execution_time: 60.0
+  failure_actions:
+    collect_logs: true
+    preserve_temp_files: true
+    generate_report: true
+logging:
+  level: INFO
+  file: '{temp_directory}/test_execution.log'
+  include_process_output: true
+  include_mpi_communication: true
+  include_parameter_validation: true

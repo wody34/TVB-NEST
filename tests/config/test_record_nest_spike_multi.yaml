@@ -1,0 +1,111 @@
+name: record_nest_spike_multi
+description: Test NEST spike recording with multiple MPI configurations
+version: '1.0'
+environment:
+  mpi_command: mpirun
+  timeout: 600
+  base_directory: /home/tests
+  temp_directory_prefix: test_nest_record_multi
+setup:
+  create_directories:
+  - temp_directory
+  cleanup_on_exit: true
+  environment_variables:
+  - source: tests/init.sh
+test_matrix:
+  configurations:
+  - name: single_recorder
+    mpi_processes: 1
+    description: Single MPI process recording baseline
+  - name: multi_recorder
+    mpi_processes: 4
+    description: Multiple MPI processes recording
+  - name: threaded_recorder
+    mpi_processes: 2
+    threads: 2
+    description: Hybrid MPI + threading recording
+processes:
+- name: spike_activity_recorder_multi_1
+  description: Multi-process neural spike activity recorder (first instance)
+  script: nest_elephant_tvb/translation/test_file/record_nest_activity/record_region_activity_multiple.py
+  mpi:
+    processes: 1
+  communication:
+    type: file
+    file: 3.txt
+    role: consumer
+  arguments:
+  - '{matrix.mpi_processes}'
+  execution:
+    mode: background
+    start_delay: 0
+    matrix_execution: true
+- name: spike_activity_recorder_multi_2
+  description: Multi-process neural spike activity recorder (second instance)
+  script: nest_elephant_tvb/translation/test_file/record_nest_activity/record_region_activity_multiple.py
+  mpi:
+    processes: 1
+  communication:
+    type: file
+    file: 4.txt
+    role: consumer
+  arguments:
+  - '{matrix.mpi_processes}'
+  execution:
+    mode: background
+    start_delay: 0.1
+    matrix_execution: true
+- name: spike_detector_threaded
+  description: NEST spike detector with threading support
+  script: tests/test_nest_file/spikedetector_mpi_thread.py
+  mpi:
+    processes: '{matrix.mpi_processes}'
+  communication:
+    type: none
+  execution:
+    mode: foreground
+    depends_on:
+    - spike_activity_recorder_multi_1
+    - spike_activity_recorder_multi_2
+    start_delay: 0.5
+    matrix_execution: true
+validation:
+  per_configuration:
+    success_criteria:
+    - all_processes_exit_zero: true
+    - communication_files_created:
+      - 3.txt
+      - 4.txt
+    - spike_data_recorded: true
+    - multi_process_coordination: true
+    - recording_synchronization: true
+    - min_execution_time: 5.0
+    - max_execution_time: 120.0
+  overall:
+    success_criteria:
+    - all_configurations_pass: true
+    - scalability_verification: true
+    - data_consistency_across_configs: true
+  failure_actions:
+    collect_logs: true
+    preserve_temp_files: true
+    dump_spike_data: true
+    generate_scalability_report: true
+performance:
+  metrics:
+  - recording_throughput: true
+  - mpi_communication_overhead: true
+  - data_processing_efficiency: true
+  - scalability_analysis: true
+monitoring:
+  spike_recording_metrics: true
+  data_integrity_checks: true
+  performance_monitoring: true
+  cross_configuration_comparison: true
+logging:
+  level: INFO
+  file: '{temp_directory}/multi_spike_recording_test.log'
+  per_configuration_logs: true
+  include_process_output: true
+  include_performance_metrics: true
+  include_spike_statistics: true

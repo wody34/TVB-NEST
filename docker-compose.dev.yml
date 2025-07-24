@@ -1,0 +1,26 @@
+services:
+  tvb-nest-dev:
+    build:
+      context: .
+      dockerfile: install/docker/Nest_TVB_2.dockerfile
+    image: tvb-nest-dev-env:latest
+    container_name: tvb-nest-dev
+    volumes:
+      - .:/home
+    working_dir: /home
+    ports:
+      - "8889:8888"
+    tty: true
+    stdin_open: true
+    command: >
+      sh -c "
+        rm -rf /home/example/parameter/parameter &&
+        rm -rf /home/example/analyse/analyse &&
+        rm -rf /home/example/long_simulation/long_simulation &&
+        rm -rf /home/example/short_simulation/short_simulation &&
+        ln -sf /home/example/parameter /home/nest_elephant_tvb/parameter &&
+        ln -sf /home/example/analyse /home/nest_elephant_tvb/analyse &&
+        ln -sf /home/example/long_simulation /home/nest_elephant_tvb/long_simulation &&
+        ln -sf /home/example/short_simulation /home/nest_elephant_tvb/short_simulation &&
+        jupyter lab --ip=0.0.0.0 --port=8888 --allow-root --no-browser --notebook-dir=/home
+      "
