@@ -322,7 +322,7 @@ def network_device(results_path,dic_layer,min_time,time_simulation,param_backgro
             spike_detector = nest.Create('spike_detector_record')
         else:
             spike_detector = []
-
+    print(f"Spike detector: {spike_detector}")
     #Connection to population
     for name_pops,items in dic_layer.items():
         list_pops = items['list']
@@ -610,12 +610,15 @@ def run_mpi(path_parameter):
         for ids_spike_generator in list_spike_generator:
             for id_spike_generator in ids_spike_generator: # FAT END POINT
                 while not os.path.exists(results_path+'/translation/spike_generator/'+str(id_spike_generator)+'.txt.unlock'):
+                    logger.warning(f"Spike generator {id_spike_generator} not found yet, retry in 1 second")
                     time.sleep(1)
                 os.remove(results_path+'/translation/spike_generator/'+str(id_spike_generator)+'.txt.unlock')
         for id_spike_detector in list_spike_detector:       # FAT END POINT
             while not os.path.exists(results_path+'/translation/spike_detector/'+str(id_spike_detector[0])+'.txt.unlock'):
+                logger.warning(f"Spike detector {id_spike_detector[0]} not found yet, retry in 1 second")
                 time.sleep(1)
             os.remove(results_path + '/translation/spike_detector/' +str(id_spike_detector[0])+'.txt.unlock')
+        logger.info("Spike generator and spike detector files are ready to use")
 
     # launch the simulation
     logger.info('start the simulation')

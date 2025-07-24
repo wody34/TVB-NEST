@@ -128,19 +128,19 @@ def init(param_tvb_connection,param_tvb_coupling,param_tvb_integrator,param_tvb_
 
     ## Monitors
     monitors =[]
-    if param_tvb_monitor['Raw']:
+    if param_tvb_monitor.get('Raw'):
         monitors.append(lab.monitors.Raw())
-    if param_tvb_monitor['TemporalAverage']:
+    if param_tvb_monitor.get('TemporalAverage') and 'parameter_TemporalAverage' in param_tvb_monitor:
         monitor_TAVG = lab.monitors.TemporalAverage(
-            variables_of_interest=param_tvb_monitor['parameter_TemporalAverage']['variables_of_interest'],
+            variables_of_interest=np.array(param_tvb_monitor['parameter_TemporalAverage']['variables_of_interest']),
             period=param_tvb_monitor['parameter_TemporalAverage']['period'])
         monitors.append(monitor_TAVG)
-    if param_tvb_monitor['Bold']:
+    if param_tvb_monitor.get('Bold') and 'parameter_Bold' in param_tvb_monitor:
         monitor_Bold = lab.monitors.Bold(
             variables_of_interest=np.array(param_tvb_monitor['parameter_Bold']['variables_of_interest']),
             period=param_tvb_monitor['parameter_Bold']['period'])
         monitors.append(monitor_Bold)
-    if param_tvb_monitor['SEEG']:
+    if param_tvb_monitor.get('SEEG') and 'parameter_SEEG' in param_tvb_monitor:
         sensor = SensorsInternal().from_file(param_tvb_monitor['parameter_SEEG']['path'])
         projection_matrix = param_tvb_monitor['parameter_SEEG']['scaling_projection']/np.array(
             [np.linalg.norm(np.expand_dims(i, 1) - centers[:, cortical], axis=0) for i in sensor.locations])
@@ -189,13 +189,13 @@ def run_simulation(simulator, time, parameter_tvb):
         #save the result in file
         if result[0][0] >= parameter_tvb['save_time']*(count+1): #check if the time for saving at some time step
             print('simulation time :'+str(result[0][0])+'\r')
-            np.save(parameter_tvb['path_result']+'/step_'+str(count)+'.npy',save_result)
+            np.save(parameter_tvb['path_result']+'/step_'+str(count)+'.npy',np.array(save_result, dtype=object))
             save_result =[]
             for i in range(nb_monitor):
                 save_result.append([])
             count +=1
     # save the last part
-    np.save(parameter_tvb['path_result']+'/step_'+str(count)+'.npy',save_result)
+    np.save(parameter_tvb['path_result']+'/step_'+str(count)+'.npy',np.array(save_result, dtype=object))
 
 def simulate_tvb(results_path,begin,end,param_tvb_connection,param_tvb_coupling,
                  param_tvb_integrator,param_tvb_model,param_tvb_monitor):
@@ -313,7 +313,7 @@ def run_mpi(path):
 
             #save the result in file
             if result[-1][0] >= param_tvb_monitor['save_time']*(count_save+1): #check if the time for saving at some time step
-                np.save(param_tvb_monitor['path_result']+'/step_'+str(count_save)+'.npy',save_result)
+                np.save(param_tvb_monitor['path_result']+'/step_'+str(count_save)+'.npy',np.array(save_result, dtype=object))
                 save_result =[]
                 for i in range(nb_monitor):
                     save_result.append([])
@@ -331,7 +331,7 @@ def run_mpi(path):
         count+=1
     # save the last part
     logger.info(" TVB finish")
-    np.save(param_tvb_monitor['path_result']+'/step_'+str(count_save)+'.npy',save_result)
+    np.save(param_tvb_monitor['path_result']+'/step_'+str(count_save)+'.npy',np.array(save_result, dtype=object))
     for index,comm in  enumerate(comm_send):
         end_mpi(comm,result_path+"/translation/receive_from_tvb/"+str(id_proxy[index])+".txt",True,logger)
     for index,comm in  enumerate(comm_receive):
@@ -400,8 +400,8 @@ def receive_mpi(comm):
     size=np.empty(1,dtype='i')
     comm.Recv([size, MPI.INT], source=0, tag=0)
     # get the rate
-    rates = np.empty(size, dtype='d')
-    comm.Recv([rates,size, MPI.DOUBLE],source=0,tag=MPI.ANY_TAG,status=status_)
+    rates = np.empty(size[0], dtype='d')
+    comm.Recv([rates,size[0], MPI.DOUBLE],source=0,tag=MPI.ANY_TAG,status=status_)
     # print the summary of the data
     if status_.Get_tag() == 0:
         return time_step,rates
@@ -463,6 +463,8 @@ def run_normal(path_parameter):
 
 if __name__ == "__main__":
     import sys
+    import time
+    start_time = time.time()
     if len(sys.argv)==3:
         if sys.argv[1] == '0': # run only tvb without mpi
             run_normal(sys.argv[2])
@@ -472,3 +474,5 @@ if __name__ == "__main__":
             raise Exception('bad option of running')
     else:
         raise Exception('not good number of argument ')
+    end_time = time.time()
+    print(f"Wall clock time for simulation: {end_time - start_time:.2f} seconds")

@@ -14,7 +14,7 @@ import numpy
 
 class Interface_co_simulation(Raw):
     id_proxy = NArray(
-        dtype=numpy.int,
+        dtype=int,
         label="Identifier of proxies",
     )
     time_synchronize = Float(
@@ -30,7 +30,7 @@ class Interface_co_simulation(Raw):
         # add some internal variable
         self._id_node = \
         numpy.where(numpy.logical_not(numpy.isin(numpy.arange(0, simulator.number_of_nodes, 1), self.id_proxy)))[0]
-        self._nb_step_time = numpy.int(self.time_synchronize / simulator.integrator.dt)
+        self._nb_step_time = int(self.time_synchronize / simulator.integrator.dt)
         self.period = simulator.integrator.dt
 
         # ####### WARNING:Create a new instance of history for taking in count the proxy (replace the old history) #########
@@ -89,7 +89,7 @@ class Interface_co_simulation(Raw):
         index_cvar_make = numpy.array(
             [[i, j, k] for i in simulator.model.cvar for j in id_proxy for k in range(simulator.model.number_of_modes)])
 
-        mask_no_cvar = numpy.ones(len(simulator.model.state_variables), numpy.bool)
+        mask_no_cvar = numpy.ones(len(simulator.model.state_variables), bool)
         mask_no_cvar[simulator.model.cvar] = False
         index_no_cvar_make = numpy.array(
             [[i, j, k] for i in numpy.where(mask_no_cvar)[0] for j in id_proxy for k in range(simulator.model.number_of_modes)])
