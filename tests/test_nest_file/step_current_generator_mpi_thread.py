@@ -10,11 +10,14 @@ import numpy
 import os
 
 nest.ResetKernel()
-# Set parameter of kernel. The most important is the set of the path
-nest.SetKernelStatus({"overwrite_files": True,
-                      "data_path": os.path.dirname(os.path.realpath(__file__))+"/../",
-                      "total_num_virtual_procs":4,
-                      })
+# get the rank of the MPI process
+rank = nest.Rank()
+# Set parameter of kernel only on the master process.
+if rank == 0:
+    nest.SetKernelStatus({"overwrite_files": True,
+                          "data_path": os.path.dirname(os.path.realpath(__file__))+"/../",
+                          "total_num_virtual_procs":4,
+                          })
 # Creation of neurons
 n = nest.Create("iaf_psc_alpha",
                 params={"tau_syn_ex": 1.0, "V_reset": -70.0})
