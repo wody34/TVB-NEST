@@ -1,13 +1,4 @@
-2020-12-16 12:56:13,130 - nest_to_tvb_master2002 - INFO - Translate Receive: before open_port
-2020-12-16 12:56:13,130 - nest_to_tvb_master2002 - INFO - Translate Receive: after open_port: tag#0$description#INS-Precision-7540$port#40863$ifname#127.0.1.1$
-2020-12-16 12:56:13,130 - nest_to_tvb_master2002 - INFO - Translate Receive: path_file: /home/kusch/Documents/project/co_simulation/TVB-NEST-nest_PR/example/short_simulation//translation/spike_detector/2002.txt
-2020-12-16 12:56:13,130 - nest_to_tvb_master2002 - INFO - Translate SEND: before open_port
-2020-12-16 12:56:13,130 - nest_to_tvb_master2002 - INFO - Translate SEND: after open_port : tag#1$description#INS-Precision-7540$port#40863$ifname#127.0.1.1$
-2020-12-16 12:56:13,130 - nest_to_tvb_master2002 - INFO - Translate SEND: path_file: /home/kusch/Documents/project/co_simulation/TVB-NEST-nest_PR/example/short_simulation//translation/send_to_tvb/81.txt
-2020-12-16 12:56:13,130 - nest_to_tvb_master2002 - INFO - Waiting communication
-2020-12-16 12:56:14,854 - nest_to_tvb_master2002 - INFO - get communication and start thread
-2020-12-16 12:56:14,854 - nest_to_tvb_master2002 - INFO - Start thread
-2020-12-16 12:56:30,757 - nest_to_tvb_master2002 - INFO - thread join
-2020-12-16 12:56:30,757 - nest_to_tvb_master2002 - INFO - close communicator
-2020-12-16 12:56:30,758 - nest_to_tvb_master2002 - INFO - clean file
-2020-12-16 12:56:30,758 - nest_to_tvb_master2002 - INFO - end
+2025-06-23 15:38:06,004 - nest_to_tvb_master2002 - INFO - Transformer: before open port
+2025-06-23 15:38:06,004 - nest_to_tvb_master2002 - INFO - Transformer: after open port, port details:tag#0$description#cf9ece5b4b01$port#37985$ifname#172.27.0.2$
+2025-06-23 15:38:06,005 - nest_to_tvb_master2002 - INFO - Transformer: path to file with port info:/home/example/short_simulation//translation/spike_detector/2002.txt
+2025-06-23 15:38:06,005 - nest_to_tvb_master2002 - INFO - Transformer: Rank 0 accepting connection on: tag#0$description#cf9ece5b4b01$port#37985$ifname#172.27.0.2$
