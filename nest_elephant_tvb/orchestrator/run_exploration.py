@@ -85,6 +85,7 @@ def run(parameters_file):
         id_proxy = param_co_simulation['id_region_nest']
 
         #Run Nest and take information for the connection between all the mpi process
+        logger.info("Orchestrator: Starting NEST simulation process.")
         dir_path = os.path.dirname(os.path.realpath(__file__))+"/../Nest/run_mpi_nest.sh"
         argv=[
             '/bin/sh',
@@ -94,6 +95,7 @@ def run(parameters_file):
             str(1),
             results_path,
         ]
+        logger.info(f"Orchestrator: NEST launch command: {' '.join(argv)}")
         processes.append(subprocess.Popen(argv,
                  # need to check if it's needed or not (doesn't work for me)
                  stdin=None,stdout=None,stderr=None,close_fds=True, #close the link with parent process
@@ -122,6 +124,7 @@ def run(parameters_file):
         f.close()
 
         # Run TVB in co-simulation
+        logger.info("Orchestrator: Starting TVB simulation process.")
         dir_path = os.path.dirname(os.path.realpath(__file__)) + "/../Tvb/run_mpi_tvb.sh"
         argv = [
             '/bin/sh',
@@ -130,14 +133,23 @@ def run(parameters_file):
             str(1),
             results_path,
         ]
+        logger.info(f"Orchestrator: TVB launch command: {' '.join(argv)}")
         processes.append(subprocess.Popen(argv,
                          # need to check if it's needed or not (doesn't work for me)
                          stdin=None, stdout=None, stderr=None, close_fds=True,  # close the link with parent process
                          ))
+        # wait until TVB is ready
+        for id_proxy_single in id_proxy:
+            while not os.path.exists(results_path+'/translation/receive_from_tvb/'+str(id_proxy_single)+'.txt.unlock'):
+                logger.info(f"TVB proxy {id_proxy_single} not found yet, retry in 1 second")
+                time.sleep(1)
+            os.remove(results_path+'/translation/receive_from_tvb/'+str(id_proxy_single)+'.txt.unlock')
+        logger.info("TVB is ready to use")
 
         # create translator between Nest to TVB :
         # one by proxy/spikedetector
         for index,id_spike_detector in enumerate(spike_detector):
+            logger.info(f"Orchestrator: Starting nest_to_tvb translator for spike_detector: {id_spike_detector} and proxy: {id_proxy[index]}")
             dir_path = os.path.dirname(os.path.realpath(__file__))+"/../translation/run_mpi_nest_to_tvb.sh"
             argv=[ '/bin/sh',
                    dir_path,
@@ -146,6 +158,7 @@ def run(parameters_file):
                    "/translation/spike_detector/"+str(id_spike_detector)+".txt",
                    "/translation/send_to_tvb/"+str(id_proxy[index])+".txt",
                    ]
+            logger.info(f"Orchestrator: nest_to_tvb translator launch command: {' '.join(argv)}")
             processes.append(subprocess.Popen(argv,
                              #need to check if it's needed or not (doesn't work for me)
                              stdin=None,stdout=None,stderr=None,close_fds=True, #close the link with parent process
@@ -154,6 +167,7 @@ def run(parameters_file):
         # create translator between TVB to Nest:
         # one by proxy/id_region
         for index,ids_spike_generator in enumerate(spike_generator):
+            logger.info(f"Orchestrator: Starting tvb_to_nest translator for spike_generator: {ids_spike_generator[0]} and proxy: {id_proxy[index]}")
             dir_path = os.path.dirname(os.path.realpath(__file__))+"/../translation/run_mpi_tvb_to_nest.sh"
             argv=[ '/bin/sh',
                    dir_path,
@@ -163,6 +177,7 @@ def run(parameters_file):
                    str(len(ids_spike_generator)),
                    "/../receive_from_tvb/"+str(id_proxy[index])+".txt",
                    ]
+            logger.info(f"Orchestrator: tvb_to_nest translator launch command: {' '.join(argv)}")
             processes.append(subprocess.Popen(argv,
                              #need to check if it's needed or not (doesn't work for me)
                              stdin=None,stdout=None,stderr=None,close_fds=True, #close the link with parent process
