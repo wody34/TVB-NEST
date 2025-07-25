@@ -177,16 +177,5 @@ def save_parameter(parameters,results_path,begin,end):
         with parameter_file.open("w", encoding="utf-8") as f:
             json.dump(complete_parameters, f, indent=2, ensure_ascii=False)
     except (IOError, OSError) as e:
-        # Log error but don't break existing functionality
-        print(f"Warning: Failed to save parameters to {parameter_file}: {e}")
-        # Fallback to original method to maintain backward compatibility
-        with open(results_dir / 'parameter.json', "wt") as f:
-            f.write("{\n")
-            for param_name, param_dic in parameters.items():
-                f.write(f'"{param_name}" : ')
-                json.dump(param_dic, f)
-                f.write(",\n")
-            f.write(f'"result_path":"{results_dir.resolve()}/",\n')
-            f.write(f'"begin":{begin},\n')
-            f.write(f'"end":{end}\n')
-            f.write("}")
+        print(f"Error: Failed to save parameters to {parameter_file}: {e}")
+        raise

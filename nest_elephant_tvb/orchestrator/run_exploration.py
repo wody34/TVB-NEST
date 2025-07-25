@@ -21,23 +21,18 @@ def ensure_directories(base_path, subdirs):
         subdirs: List of subdirectory names to create
     """
     base = Path(base_path)
-    created_dirs = []
     
     try:
         # Create base directory first
         base.mkdir(parents=True, exist_ok=True)
-        created_dirs.append(str(base))
         
         # Create subdirectories
         for subdir in subdirs:
             dir_path = base / subdir
             dir_path.mkdir(parents=True, exist_ok=True)
-            created_dirs.append(str(dir_path))
             
-        return created_dirs
     except (OSError, IOError) as e:
         print(f"Warning: Failed to create some directories: {e}")
-        return created_dirs
 
 def run(parameters_file):
     '''
@@ -144,7 +139,7 @@ def run(parameters_file):
         print("Ids of different populations of Nest :\n")
         population_file = results_path / 'nest' / 'population_GIDs.dat'
         try:
-            with open(population_file, 'r') as f:
+            with population_file.open('r', encoding='utf-8') as f:
                 print(f.read())
         except (IOError, OSError) as e:
             logger.warning(f"Could not read population GIDs file {population_file}: {e}")
