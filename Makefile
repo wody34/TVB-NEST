@@ -26,7 +26,7 @@ dev-build: ## Build development Docker image
 dev-logs: ## Show development container logs
 	docker-compose -f docker-compose.dev.yml logs -f
 
-dev-shell: ## Access development container shell
+dev-sh: ## Access development container shell
 	@echo "🐚 Accessing development container shell..."
 	docker exec -it tvb-nest-dev bash
 

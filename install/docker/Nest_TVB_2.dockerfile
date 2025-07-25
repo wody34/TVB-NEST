@@ -62,10 +62,28 @@ RUN mkdir /home/nest_build && cd /home/nest_build && \
     -Dwith-mpi=ON -Dwith-python=ON -Dwith-openmp=ON -Dwith-gsl=ON -Dwith-readline=ON \
     && make -j$(nproc) && make install
 
-# 6. Install Python RUNTIME & ANALYSIS dependencies
+# 6a. Install core Python runtime dependencies
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system Pillow matplotlib scipy elephant jupyterlab networkx viziphant ipykernel pyyaml pydantic && \
-    uv pip install --system typer rich hydra-core omegaconf cerberus pytest pytest-cov && \
+    uv pip install --system Pillow matplotlib scipy numpy
+
+# 6b. Install scientific analysis dependencies
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system elephant networkx viziphant
+
+# 6c. Install development and testing tools
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system jupyterlab ipykernel pyyaml pydantic
+
+# 6d. Install CLI and configuration tools
+# RUN --mount=type=cache,target=/root/.cache/uv \
+#     uv pip install --system typer rich hydra-core omegaconf cerberus
+
+# 6e. Install testing framework
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system pytest pytest-cov
+
+# 6f. Install TVB dependencies with LLVM configuration
+RUN --mount=type=cache,target=/root/.cache/uv \
     export LLVM_CONFIG=$(which llvm-config-11) && \
     uv pip install --system tvb-data tvb-gdist tvb-library
 
