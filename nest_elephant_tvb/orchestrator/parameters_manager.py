@@ -2,46 +2,174 @@
 # "Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements; and to You under the Apache License, Version 2.0. "
 
 import json
+import logging
 import numpy as np
 import os
+import types
 from pathlib import Path
+from typing import Union, Dict, Any
 
-def generate_parameter(parameter_default,results_path,dict_variable=None):
+# Import Pydantic validation components
+try:
+    from .validation.compatibility import BackwardCompatibilityManager
+    from .validation.schemas import SimulationParameters
+    PYDANTIC_AVAILABLE = True
+except ImportError:
+    PYDANTIC_AVAILABLE = False
+
+def generate_parameter(parameter_default, results_path, dict_variable=None):
     """
-    generate the  parameter for the actual simulation
-    use for changing parameter for the exploration
-    WARNING: not all parameters can be use for exploration, changing this function for add new parameters
-             only  parameters of excitatory neurons can be changing
-    :param parameter_default: parameters by default of the exploration
-    :param results_path : the folder of the result
-    :param dict_variable: the variable to change and there values
-    :return:
+    Generate parameters for simulation with hybrid Pydantic/legacy support.
+    
+    This function now supports both:
+    1. Module objects (example.parameter.test_nest) → converted to Pydantic
+    2. Dictionary parameters → validated with Pydantic
+    3. Fallback to legacy behavior if Pydantic unavailable
+    
+    :param parameter_default: Module object, dict, or Pydantic model with default parameters
+    :param results_path: Folder path for simulation results  
+    :param dict_variable: Variables to change for parameter exploration
+    :return: Parameters ready for simulation (dict or Pydantic model)
     """
-    # change the exploring parameter
+    # Try Pydantic-enhanced processing first
+    if PYDANTIC_AVAILABLE:
+        try:
+            return _generate_parameter_pydantic(parameter_default, results_path, dict_variable)
+        except (ImportError, AttributeError) as e:
+            logging.info(f"Pydantic validation not available or incompatible: {e}")
+            logging.info("Falling back to legacy parameter generation")
+        except Exception as e:
+            logging.warning(f"Pydantic parameter generation failed: {e}")
+            logging.info("Falling back to legacy parameter generation")
+    
+    # Fallback to legacy behavior
+    return _generate_parameter_legacy(parameter_default, results_path, dict_variable)
+
+
+def _generate_parameter_pydantic(parameter_default, results_path, dict_variable=None):
+    """
+    Enhanced parameter generation with Pydantic validation and module support.
+    """
+    # Step 1: Convert input to Pydantic model
+    if isinstance(parameter_default, types.ModuleType):
+        # Handle module objects (critical for run_co-sim.py pattern)
+        params = BackwardCompatibilityManager.convert_module_to_pydantic(parameter_default)
+    elif hasattr(parameter_default, 'model_dump'):
+        # Already a Pydantic model
+        params = parameter_default  
+    elif isinstance(parameter_default, dict):
+        # Dictionary - validate and convert
+        from .validation.validators import ParameterValidator
+        params = ParameterValidator.validate_dict(parameter_default)
+    else:
+        raise ValueError(f"Unsupported parameter_default type: {type(parameter_default)}")
+    
+    # Step 2: Apply exploration variables if provided
+    if dict_variable:
+        params = BackwardCompatibilityManager.apply_exploration_variables(params, dict_variable)
+    
+    # Step 3: Create linked parameters (enhanced version)
+    return create_linked_parameters(results_path, params)
+
+
+def _generate_parameter_legacy(parameter_default, results_path, dict_variable=None):
+    """
+    Original parameter generation logic for fallback compatibility.
+    
+    This function handles the module object introspection pattern where
+    parameter_default is a module (like example.parameter.test_nest) containing
+    parameter dictionaries as attributes.
+    """
+    # Extract all parameter dictionaries from module object
     parameters = {}
-    if dict_variable != None:
-        for variable in dict_variable.keys():
-            for parameters_name in dir(parameter_default):
-                if 'param' in parameters_name:
-                    parameters_values = getattr(parameter_default,parameters_name)
-                    if variable in parameters_values:
-                        parameters_values[variable]=dict_variable[variable]
-                    parameters[parameters_name] = parameters_values
-            if variable in parameters['param_nest_topology']['param_neuron_excitatory'].keys():
-                parameters['param_nest_topology']['param_neuron_excitatory'][variable]=dict_variable[variable]
-            #elif variable in parameters['param_topology']['param_neuron_inhibitory'].keys(): # TODO problem to difference between inihibitory and excitatory parameters
-            #   parameters['param_topology']['param_neuron_inhibitory'][variable] = dict_variable[variable]
-    return create_linked_parameters(results_path,parameters)
+    
+    # Get all parameter attributes from the module
+    for parameters_name in dir(parameter_default):
+        if 'param' in parameters_name and not parameters_name.startswith('_'):
+            try:
+                parameters_values = getattr(parameter_default, parameters_name)
+                if isinstance(parameters_values, dict):
+                    # Make a deep copy to avoid modifying original module attributes
+                    import copy
+                    parameters[parameters_name] = copy.deepcopy(parameters_values)
+            except AttributeError:
+                continue
+    
+    # Apply exploration variables if provided
+    if dict_variable is not None:
+        for variable_name, variable_value in dict_variable.items():
+            # Search through all parameter sections
+            for parameters_name in parameters.keys():
+                parameters_values = parameters[parameters_name]
+                if isinstance(parameters_values, dict) and variable_name in parameters_values:
+                    parameters_values[variable_name] = variable_value
+            
+            # Handle nested neuron parameters (special case from original code)
+            if ('param_nest_topology' in parameters and 
+                'param_neuron_excitatory' in parameters['param_nest_topology'] and
+                variable_name in parameters['param_nest_topology']['param_neuron_excitatory']):
+                parameters['param_nest_topology']['param_neuron_excitatory'][variable_name] = variable_value
+            
+            # Note: Inhibitory neuron parameters commented out in original due to TODO
+            # This preserves the exact behavior of the original implementation
+    
+    return create_linked_parameters(results_path, parameters)
 
 
-def create_linked_parameters(results_path,parameters):
+def create_linked_parameters(results_path, parameters):
     """
-    Change the parameters following the link between them
-
-    :param results_path: the folder to save the result
-    :param parameters: dictionary of parameters
-    :return: dictionary of parameters for the simulation
+    Create linked parameters with hybrid Pydantic/legacy support.
+    
+    This function now handles both:
+    1. Pydantic models → convert to dict, process, optionally convert back
+    2. Legacy dictionaries → process as before
+    3. Maintains Jupyter notebook compatibility
+    
+    :param results_path: folder to save the result
+    :param parameters: dictionary or Pydantic model of parameters
+    :return: processed parameters (dict or Pydantic model)
     """
+    # Determine input type and convert to dict for processing
+    is_pydantic = hasattr(parameters, 'model_dump')
+    
+    if is_pydantic:
+        # Pydantic model - convert to dict
+        param_dict = parameters.model_dump()
+        logging.debug("Processing Pydantic model parameters")
+    else:
+        # Legacy dict
+        param_dict = parameters
+        logging.debug("Processing legacy dictionary parameters")
+    
+    # Apply original linking logic to dictionary
+    linked_dict = _create_linked_parameters_dict(results_path, param_dict)
+    
+    # Return in same format as input
+    if is_pydantic and PYDANTIC_AVAILABLE:
+        try:
+            # Convert back to Pydantic model
+            from .validation.validators import ParameterValidator
+            return ParameterValidator.validate_dict(linked_dict)
+        except Exception as e:
+            logging.warning(f"Could not convert back to Pydantic model: {e}")
+            return linked_dict
+    else:
+        # Return as dict (legacy or fallback)
+        return linked_dict
+
+
+def _create_linked_parameters_dict(results_path, parameters):
+    """
+    Original parameter linking logic extracted for reuse.
+    
+    This function contains the complex parameter linking logic that establishes
+    relationships between TVB and NEST parameters, ensuring consistency across
+    the co-simulation.
+    """
+    import copy
+    # Make a deep copy to avoid modifying the original nested dictionaries
+    parameters = copy.deepcopy(parameters)
+    
     param_co_simulation = parameters['param_co_simulation']
     param_nest = parameters['param_nest']
     param_nest_connection = parameters['param_nest_connection']
@@ -151,10 +279,10 @@ def create_linked_parameters(results_path,parameters):
     return parameters
 
 
-def save_parameter(parameters,results_path,begin,end):
+def save_parameter(parameters, results_path, begin, end):
     """
     save the parameters of the simulations in json file
-    :param parameters: dictionary of parameters
+    :param parameters: dictionary of parameters or Pydantic model
     :param results_path: where to save the result
     :param begin: when start the recording simulation ( not take in count for tvb (start always to zeros )
     :param end:  when end the recording simulation and the simulation
@@ -164,9 +292,16 @@ def save_parameter(parameters,results_path,begin,end):
     results_dir = Path(results_path)
     parameter_file = results_dir / 'parameter.json'
     
+    # Convert Pydantic model to dict if necessary
+    if PYDANTIC_AVAILABLE and BackwardCompatibilityManager.is_pydantic_model(parameters):
+        parameters_dict = parameters.model_dump()
+        logging.debug("Converting Pydantic model to dict for saving")
+    else:
+        parameters_dict = parameters
+    
     # Create complete parameter dictionary
     complete_parameters = {
-        **parameters,
+        **parameters_dict,
         "result_path": str(results_dir.resolve()) + "/",
         "begin": begin,
         "end": end
@@ -177,5 +312,5 @@ def save_parameter(parameters,results_path,begin,end):
         with parameter_file.open("w", encoding="utf-8") as f:
             json.dump(complete_parameters, f, indent=2, ensure_ascii=False)
     except (IOError, OSError) as e:
-        print(f"Error: Failed to save parameters to {parameter_file}: {e}")
+        logging.error(f"Failed to save parameters to {parameter_file}: {e}")
         raise
