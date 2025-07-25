@@ -94,10 +94,10 @@ def run(parameters_file):
         # First case : co-simulation
         # Create translation directories using pathlib
         translation_dirs = [
-            'translation/spike_detector',
-            'translation/send_to_tvb', 
-            'translation/spike_generator',
-            'translation/receive_from_tvb'
+            Path('translation/spike_detector'),
+            Path('translation/send_to_tvb'), 
+            Path('translation/spike_generator'),
+            Path('translation/receive_from_tvb')
         ]
         ensure_directories(results_path, translation_dirs)
 
@@ -142,7 +142,7 @@ def run(parameters_file):
 
         # print ids of nest population
         print("Ids of different populations of Nest :\n")
-        population_file = os.path.join(results_path, 'nest', 'population_GIDs.dat')
+        population_file = results_path / 'nest' / 'population_GIDs.dat'
         try:
             with open(population_file, 'r') as f:
                 print(f.read())
