@@ -5,7 +5,7 @@ Pydantic을 사용한 현대적 Parameter Validation
 - 훨씬 깔끔하고 유지보수 쉬움
 """
 
-from pydantic import BaseModel, Field, validator, root_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import List, Optional, Union
 from pathlib import Path
 import json
@@ -20,7 +20,8 @@ class CoSimulationParams(BaseModel):
     id_region_nest: Optional[List[int]] = Field(None, description="NEST region IDs")
     record_MPI: bool = Field(default=False)
     
-    @validator('id_region_nest')
+    @field_validator('id_region_nest')
+    @classmethod
     def validate_region_ids(cls, v):
         if v is not None and len(v) == 0:
             raise ValueError("id_region_nest cannot be empty list")
@@ -67,24 +68,25 @@ class SimulationParameters(BaseModel):
     param_tvb_model: Optional[dict] = None
     param_tvb_connection: Optional[dict] = None
     
-    @validator('end')
-    def end_must_be_after_begin(cls, v, values):
-        if 'begin' in values and v <= values['begin']:
+    @field_validator('end')
+    @classmethod
+    def end_must_be_after_begin(cls, v, info):
+        if hasattr(info, 'data') and 'begin' in info.data and v <= info.data['begin']:
             raise ValueError('end time must be greater than begin time')
         return v
     
-    @root_validator
-    def validate_co_simulation_requirements(cls, values):
+    @model_validator(mode='after')
+    def validate_co_simulation_requirements(self):
         """Cross-validation: if co-simulation enabled, check required sections"""
-        co_sim = values.get('param_co_simulation')
-        if co_sim and co_sim.co_simulation:
+        if self.param_co_simulation.co_simulation:
             required_sections = ['param_TR_nest_to_tvb', 'param_TR_tvb_to_nest']
             for section in required_sections:
-                if not values.get(section):
+                if not getattr(self, section):
                     raise ValueError(f"Co-simulation requires {section} section")
-        return values
+        return self
     
-    @validator('result_path')
+    @field_validator('result_path')
+    @classmethod
     def validate_result_path(cls, v):
         """Ensure result path is valid and writable"""
         path = Path(v)
@@ -94,13 +96,13 @@ class SimulationParameters(BaseModel):
             raise ValueError(f"Cannot create result directory: {e}")
         return str(path.resolve())
     
-    class Config:
+    model_config = {
         # Enable validation on assignment
-        validate_assignment = True
+        "validate_assignment": True,
         # Allow extra fields (for backward compatibility)
-        extra = "allow"
+        "extra": "allow",
         # Generate JSON schema
-        schema_extra = {
+        "json_schema_extra": {
             "example": {
                 "result_path": "./simulation_results/",
                 "begin": 0.0,
@@ -113,6 +115,7 @@ class SimulationParameters(BaseModel):
                 }
             }
         }
+    }
 
 # 사용법: 기존 코드를 완전히 대체
 def load_and_validate_parameters(parameters_file: str) -> SimulationParameters:
@@ -168,7 +171,7 @@ if __name__ == "__main__":
         print(f"Simulation time: {params.begin} -> {params.end}")
         
         # JSON Schema 생성 (문서화용)
-        schema = SimulationParameters.schema()
+        schema = SimulationParameters.model_json_schema()
         print("\n📋 Generated JSON Schema available for documentation")
         
     except Exception as e:

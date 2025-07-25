@@ -12,8 +12,9 @@ while maintaining backward compatibility with existing parameter systems.
 from pathlib import Path
 import types
 import logging
-from typing import Union, Dict, Any, List, Optional
+import itertools
 import copy
+from typing import Union, Dict, Any, List, Optional
 
 try:
     from .validation.schemas import SimulationParameters
@@ -319,7 +320,6 @@ class Experiment:
         Returns:
             List of dictionaries with exploration variable combinations
         """
-        import itertools
         
         # Get parameter names and values
         param_names = list(self.exploration_variables.keys())

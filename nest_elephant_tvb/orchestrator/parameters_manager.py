@@ -1,6 +1,7 @@
 #  Copyright 2020 Forschungszentrum Jülich GmbH and Aix-Marseille Université
 # "Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements; and to You under the Apache License, Version 2.0. "
 
+import copy
 import json
 import logging
 import numpy as np
@@ -90,7 +91,6 @@ def _generate_parameter_legacy(parameter_default, results_path, dict_variable=No
                 parameters_values = getattr(parameter_default, parameters_name)
                 if isinstance(parameters_values, dict):
                     # Make a deep copy to avoid modifying original module attributes
-                    import copy
                     parameters[parameters_name] = copy.deepcopy(parameters_values)
             except AttributeError:
                 continue
@@ -166,7 +166,6 @@ def _create_linked_parameters_dict(results_path, parameters):
     relationships between TVB and NEST parameters, ensuring consistency across
     the co-simulation.
     """
-    import copy
     # Make a deep copy to avoid modifying the original nested dictionaries
     parameters = copy.deepcopy(parameters)
     
