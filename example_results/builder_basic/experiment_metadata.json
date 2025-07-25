@@ -1,0 +1,20 @@
+{
+  "name": "Basic Builder Example",
+  "description": "Demonstration of Builder pattern for TVB-NEST experiments",
+  "results_path": "/home/example_results/builder_basic",
+  "exploration_variables": {
+    "g": [
+      1.0,
+      1.5,
+      2.0
+    ],
+    "mean_I_ext": [
+      0.0,
+      0.1,
+      0.2
+    ]
+  },
+  "num_parameter_combinations": 9,
+  "validation_enabled": true,
+  "custom_parameter_links": {}
+}
