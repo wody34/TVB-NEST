@@ -4,6 +4,7 @@
 import json
 import numpy as np
 import os
+from pathlib import Path
 
 def generate_parameter(parameter_default,results_path,dict_variable=None):
     """
@@ -111,10 +112,10 @@ def create_linked_parameters(results_path,parameters):
         else:
             param_TR_tvb_to_nest = {}
         if not 'init' in param_TR_tvb_to_nest.keys():
-            path_rates = results_path+'/init_rates.npy'
+            path_rates = Path(results_path) / 'init_rates.npy'
             init_rates = np.array([[] for i in range(param_nest_topology['nb_neuron_by_region'])])
-            np.save(path_rates,init_rates)
-            param_TR_tvb_to_nest['init']= path_rates
+            np.save(str(path_rates), init_rates)
+            param_TR_tvb_to_nest['init'] = str(path_rates)
         param_TR_tvb_to_nest['level_log']= param_co_simulation['level_log']
         param_TR_tvb_to_nest['seed'] = param_nest['master_seed']-3
         param_TR_tvb_to_nest['nb_synapses'] = param_nest_connection['nb_external_synapse']
@@ -126,10 +127,10 @@ def create_linked_parameters(results_path,parameters):
         else:
             param_TR_nest_to_tvb = {}
         if not 'init' in param_TR_nest_to_tvb.keys():
-            path_spikes = results_path+'/init_spikes.npy'
+            path_spikes = Path(results_path) / 'init_spikes.npy'
             init_spikes = np.zeros((int(param_co_simulation['synchronization']/param_nest['sim_resolution']),1))
-            np.save(path_spikes,init_spikes)
-            param_TR_nest_to_tvb['init']= path_spikes
+            np.save(str(path_spikes), init_spikes)
+            param_TR_nest_to_tvb['init'] = str(path_spikes)
         param_TR_nest_to_tvb['resolution']=param_nest['sim_resolution']
         param_TR_nest_to_tvb['nb_neurons']=param_nest_topology['nb_neuron_by_region'] * (1-param_nest_topology['percentage_inhibitory'])
         param_TR_nest_to_tvb['synch']=param_co_simulation['synchronization']
@@ -159,15 +160,22 @@ def save_parameter(parameters,results_path,begin,end):
     :param end:  when end the recording simulation and the simulation
     :return: nothing
     """
-    # save the value of all parameters
-    f = open(results_path+'/parameter.json',"wt")
-    f.write("{\n")
-    for param_name,param_dic in parameters.items():
-        f.write('"'+param_name+'" : ')
-        json.dump(param_dic, f)
-        f.write(",\n")
-    f.write('"result_path":"'+os.path.abspath(results_path)+"/\",\n")
-    f.write('"begin":' + str(begin) + ",\n")
-    f.write('"end":' + str(end) + "\n")
-    f.write("}")
-    f.close()
+    # save the value of all parameters using pathlib
+    results_dir = Path(results_path)
+    parameter_file = results_dir / 'parameter.json'
+    
+    # Create complete parameter dictionary
+    complete_parameters = {
+        **parameters,
+        "result_path": str(results_dir.resolve()) + "/",
+        "begin": begin,
+        "end": end
+    }
+    
+    # Use context manager and proper JSON serialization
+    try:
+        with parameter_file.open("w", encoding="utf-8") as f:
+            json.dump(complete_parameters, f, indent=2, ensure_ascii=False)
+    except (IOError, OSError) as e:
+        print(f"Error: Failed to save parameters to {parameter_file}: {e}")
+        raise

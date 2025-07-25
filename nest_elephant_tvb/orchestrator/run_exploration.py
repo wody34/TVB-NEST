@@ -9,7 +9,30 @@ import subprocess
 import logging
 import time
 import numpy as np
+from pathlib import Path
 from nest_elephant_tvb.orchestrator.parameters_manager import generate_parameter,save_parameter
+
+def ensure_directories(base_path, subdirs):
+    """
+    Create directories using pathlib with proper error handling
+    
+    Args:
+        base_path: Base directory path (str or Path)
+        subdirs: List of subdirectory names to create
+    """
+    base = Path(base_path)
+    
+    try:
+        # Create base directory first
+        base.mkdir(parents=True, exist_ok=True)
+        
+        # Create subdirectories
+        for subdir in subdirs:
+            dir_path = base / subdir
+            dir_path.mkdir(parents=True, exist_ok=True)
+            
+    except (OSError, IOError) as e:
+        print(f"Warning: Failed to create some directories: {e}")
 
 def run(parameters_file):
     '''
@@ -17,20 +40,15 @@ def run(parameters_file):
     :param parameters_file: parameters of the simulation
     :return:
     '''
-    with open(parameters_file) as f:
+    # Load parameters using pathlib and context manager
+    param_file = Path(parameters_file)
+    with param_file.open('r', encoding='utf-8') as f:
         parameters = json.load(f)
 
-    #create the folder for result is not exist
-    results_path = os.path.join(os.getcwd(),parameters['result_path'])
-    # start to create the repertory for the simulation
-    if not os.path.exists(results_path):
-        os.makedirs(results_path)
-    if not os.path.exists(results_path+"/log"):
-        os.makedirs(results_path+"/log")
-    if not os.path.exists(results_path + '/nest'):
-        os.makedirs(results_path + '/nest')
-    if not os.path.exists(results_path + '/tvb'):
-        os.makedirs(results_path + '/tvb')
+    # Create result directories using pathlib
+    results_path = Path.cwd() / parameters['result_path']
+    base_dirs = ['log', 'nest', 'tvb']
+    ensure_directories(results_path, base_dirs)
 
     # parameter for the co-simulation
     param_co_simulation = parameters['param_co_simulation']
@@ -69,47 +87,47 @@ def run(parameters_file):
     processes = [] # process generate for the co-simulation
     if param_co_simulation['co-simulation']:
         # First case : co-simulation
-        if not os.path.exists(results_path + '/translation'):
-            os.makedirs(results_path + '/translation')
-        # create all the repertory for the translation file (communication files of MPI)
-        if not os.path.exists(results_path+"/translation/spike_detector/"):
-            os.makedirs(results_path+"/translation/spike_detector/")
-        if not os.path.exists(results_path+"/translation/send_to_tvb/"):
-            os.makedirs(results_path+"/translation/send_to_tvb/")
-        # create all the repertory for the translation file (communication files of MPI)
-        if not os.path.exists(results_path+"/translation/spike_generator/"):
-            os.makedirs(results_path+"/translation/spike_generator/")
-        if not os.path.exists(results_path+"/translation/receive_from_tvb/"):
-            os.makedirs(results_path+"/translation/receive_from_tvb/")
+        # Create translation directories using pathlib
+        translation_dirs = [
+            Path('translation/spike_detector'),
+            Path('translation/send_to_tvb'), 
+            Path('translation/spike_generator'),
+            Path('translation/receive_from_tvb')
+        ]
+        ensure_directories(results_path, translation_dirs)
 
         id_proxy = param_co_simulation['id_region_nest']
 
         #Run Nest and take information for the connection between all the mpi process
         logger.info("Orchestrator: Starting NEST simulation process.")
-        dir_path = os.path.dirname(os.path.realpath(__file__))+"/../Nest/run_mpi_nest.sh"
+        nest_script = Path(__file__).parent / "../Nest/run_mpi_nest.sh"
         argv=[
             '/bin/sh',
-            dir_path,
+            str(nest_script.resolve()),
             mpirun,
             str(param_co_simulation['nb_MPI_nest']),
             str(1),
-            results_path,
+            str(results_path),
         ]
         logger.info(f"Orchestrator: NEST launch command: {' '.join(argv)}")
         processes.append(subprocess.Popen(argv,
                  # need to check if it's needed or not (doesn't work for me)
                  stdin=None,stdout=None,stderr=None,close_fds=True, #close the link with parent process
                  ))
-        while not os.path.exists(results_path+'/nest/spike_generator.txt.unlock'):
+        # Wait for spike generator and detector files using pathlib
+        spike_gen_unlock = results_path / 'nest' / 'spike_generator.txt.unlock'
+        while not spike_gen_unlock.exists():
             logger.info("spike generator ids not found yet, retry in 1 second")
             time.sleep(1)
-        os.remove(results_path+'/nest/spike_generator.txt.unlock')
-        spike_generator = np.loadtxt(results_path+'/nest/spike_generator.txt',dtype=int)
-        while not os.path.exists(results_path+'/nest/spike_detector.txt.unlock'):
+        spike_gen_unlock.unlink()
+        spike_generator = np.loadtxt(str(results_path / 'nest' / 'spike_generator.txt'), dtype=int)
+        
+        spike_det_unlock = results_path / 'nest' / 'spike_detector.txt.unlock'
+        while not spike_det_unlock.exists():
             logger.info("spike detector ids not found yet, retry in 1 second")
             time.sleep(1)
-        os.remove(results_path+'/nest/spike_detector.txt.unlock')
-        spike_detector = np.loadtxt(results_path+'/nest/spike_detector.txt',dtype=int)
+        spike_det_unlock.unlink()
+        spike_detector = np.loadtxt(str(results_path / 'nest' / 'spike_detector.txt'), dtype=int)
         # case of one spike detector
         try :
             spike_detector = np.array([int(spike_detector)])
@@ -119,19 +137,23 @@ def run(parameters_file):
 
         # print ids of nest population
         print("Ids of different populations of Nest :\n")
-        f = open(results_path+'/nest/population_GIDs.dat', 'r')
-        print(f.read())
-        f.close()
+        population_file = results_path / 'nest' / 'population_GIDs.dat'
+        try:
+            with population_file.open('r', encoding='utf-8') as f:
+                print(f.read())
+        except (IOError, OSError) as e:
+            logger.warning(f"Could not read population GIDs file {population_file}: {e}")
+            print("Population GIDs file not available")
 
         # Run TVB in co-simulation
         logger.info("Orchestrator: Starting TVB simulation process.")
-        dir_path = os.path.dirname(os.path.realpath(__file__)) + "/../Tvb/run_mpi_tvb.sh"
+        tvb_script = Path(__file__).parent / "../Tvb/run_mpi_tvb.sh"
         argv = [
             '/bin/sh',
-            dir_path,
+            str(tvb_script.resolve()),
             mpirun,
             str(1),
-            results_path,
+            str(results_path),
         ]
         logger.info(f"Orchestrator: TVB launch command: {' '.join(argv)}")
         processes.append(subprocess.Popen(argv,
@@ -275,23 +297,26 @@ def run_exploration(results_path,parameter_default,dict_variable,begin,end):
     :param end: when end the recording simulation and the simulation
     :return: nothing
     """
-    #create the folder for result is not exist
-    newpath = os.path.join(os.getcwd(),results_path)
-    # start to create the repertory for the simulation
-    if not os.path.exists(newpath):
-        os.makedirs(newpath)
-    else:
-        try:
-            os.remove(newpath + '/parameter.py') # use it for synchronise all mpi the beginning
-        except OSError:
-            pass
-    # generate and save parameter for the  simulation
-    parameters = generate_parameter(parameter_default,results_path,dict_variable)
-    save_parameter(parameters,results_path,begin,end)
-    # check if the file is available
-    while not os.path.exists(results_path + '/parameter.json'):
+    # Create the folder for results using pathlib
+    results_dir = Path.cwd() / results_path
+    results_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Remove synchronization file if it exists
+    sync_file = results_dir / 'parameter.py'
+    try:
+        sync_file.unlink(missing_ok=True)  # use it for synchronise all mpi the beginning
+    except OSError:
+        pass
+        
+    # generate and save parameter for the simulation
+    parameters = generate_parameter(parameter_default, results_path, dict_variable)
+    save_parameter(parameters, results_path, begin, end)
+    
+    # check if the parameter file is available using pathlib
+    param_file = results_dir / 'parameter.json'
+    while not param_file.exists():
         time.sleep(1)
-    run(results_path+'/parameter.json')
+    run(str(param_file))
 
 
 def run_exploration_2D(path,parameter_default,dict_variables,begin,end):
