@@ -64,7 +64,8 @@ RUN mkdir /home/nest_build && cd /home/nest_build && \
 
 # 6. Install Python RUNTIME & ANALYSIS dependencies
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system Pillow matplotlib scipy elephant jupyterlab networkx viziphant ipykernel pyyaml && \
+    uv pip install --system Pillow matplotlib scipy elephant jupyterlab networkx viziphant ipykernel pyyaml pydantic && \
+    uv pip install --system typer rich hydra-core omegaconf cerberus pytest pytest-cov && \
     export LLVM_CONFIG=$(which llvm-config-11) && \
     uv pip install --system tvb-data tvb-gdist tvb-library
 
