@@ -224,7 +224,7 @@ clean: ## Clean up build artifacts and caches
 
 clean-full: ## Full cleanup including lock files
 	@echo "🧹 Full cleanup..."
-	$(MAKE) -f Makefile.nix clean
+	$(MAKE) -f Makefile.nix.dev clean
 	rm -f uv.lock pyproject.toml
 	@echo "✅ Full cleanup completed"
 
@@ -237,11 +237,11 @@ ci-test: ## Run CI-friendly test suite
 	@echo "1/4 Testing Nix environment loading..."
 	nix develop --command echo "✅ Environment loads"
 	@echo "2/4 Testing scientific packages..."
-	$(MAKE) -f Makefile.nix test-scientific
+	$(MAKE) -f Makefile.nix.dev test-scientific
 	@echo "3/4 Testing MPI functionality..."
-	$(MAKE) -f Makefile.nix test-mpi
+	$(MAKE) -f Makefile.nix.dev test-mpi
 	@echo "4/4 Running main test suite..."
-	$(MAKE) -f Makefile.nix test
+	$(MAKE) -f Makefile.nix.dev test
 	@echo "✅ CI pipeline completed successfully!"
 
 # Performance benchmarking
@@ -266,7 +266,7 @@ docs: ## Show documentation and project structure
 	@echo "  📂 tests/ - Legacy and YAML-based tests"
 	@echo "  📂 examples/ - Usage examples"
 	@echo "  📄 flake.nix - Nix environment configuration"
-	@echo "  📄 Makefile.nix - This Makefile"
+	@echo "  📄 Makefile.nix.dev - This Makefile"
 	@echo ""
 	@echo "🚀 Key Features:"
 	@echo "  • Native macOS performance (no Docker overhead)"
