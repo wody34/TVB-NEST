@@ -146,13 +146,17 @@ def create_linked_parameters(results_path, parameters):
     
     # Return in same format as input
     if is_pydantic and PYDANTIC_AVAILABLE:
+        # Re-validate the dictionary after linking to ensure it still conforms to the schema.
+        # This will raise a ParameterValidationError if the linking logic creates an invalid state.
+        from .validation.validators import ParameterValidator, ParameterValidationError
         try:
-            # Convert back to Pydantic model
-            from .validation.validators import ParameterValidator
             return ParameterValidator.validate_dict(linked_dict)
+        except ParameterValidationError as e:
+            # Specific validation error - indicates linking logic issue
+            raise ParameterValidationError(f"Parameter linking created invalid state: {e}")
         except Exception as e:
-            logging.warning(f"Could not convert back to Pydantic model: {e}")
-            return linked_dict
+            # Unexpected error - preserve original error context
+            raise RuntimeError(f"Unexpected error during parameter validation: {e}")
     else:
         # Return as dict (legacy or fallback)
         return linked_dict

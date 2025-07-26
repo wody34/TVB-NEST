@@ -190,10 +190,8 @@ class TestCompleteIntegration:
             # Verify specific values
             model_dict = pydantic_model.model_dump()
             # Check if we have the expected structure
-            print(f"Debug: model_dict keys = {list(model_dict.keys())}")
             if 'param_co_simulation' in model_dict:
                 co_sim_dict = model_dict['param_co_simulation']
-                print(f"Debug: co_sim_dict keys = {list(co_sim_dict.keys()) if isinstance(co_sim_dict, dict) else 'Not a dict'}")
                 if isinstance(co_sim_dict, dict) and 'co-simulation' in co_sim_dict:
                     assert co_sim_dict['co-simulation'] == True
                 # Also check sim_resolution if available
@@ -322,7 +320,6 @@ class TestCompleteIntegration:
             assert g_values == {1.0, 1.5, 2.0}
             # Note: mean_I_ext exploration might not work if not properly implemented in generate_parameter
             # For now, just verify we have some variation
-            print(f"Debug: mean_I_ext_values = {mean_I_ext_values}")
             assert len(mean_I_ext_values) >= 1, f"Expected at least 1 mean_I_ext value, got: {mean_I_ext_values}"
     
     def test_backward_compatibility_with_existing_code(self):

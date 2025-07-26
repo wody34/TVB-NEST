@@ -300,6 +300,46 @@ class BackwardCompatibilityManager:
             True if Pydantic model, False if dict
         """
         return hasattr(params, 'model_dump')
+    
+    @staticmethod
+    def load_parameters_safe_dict(parameters_file: str) -> Dict[str, Any]:
+        """
+        Load parameters with Pydantic validation, fallback to original method.
+        Always returns dictionary format for backward compatibility.
+        
+        This method allows gradual migration and testing by providing
+        the same interface as the legacy ParameterIntegration class.
+        
+        Args:
+            parameters_file: Path to parameter file
+            
+        Returns:
+            Dictionary with validated parameters
+        """
+        try:
+            from .validators import ParameterValidator, ParameterValidationError
+            validated_params = ParameterValidator.load_and_validate(parameters_file)
+            return validated_params.model_dump(by_alias=True)
+        except Exception as e:
+            # Log validation error but don't break existing functionality
+            logger.warning(f"Pydantic validation failed, using legacy method: {e}")
+            
+            # Fallback to comprehensive legacy parameter loading
+            return BackwardCompatibilityManager._load_legacy_parameters(parameters_file)
+    
+    @staticmethod
+    def get_typed_parameters(parameters_file: str) -> SimulationParameters:
+        """
+        Get fully typed parameter object for new code.
+        
+        Args:
+            parameters_file: Path to parameter file
+            
+        Returns:
+            Validated Pydantic model
+        """
+        from .validators import ParameterValidator
+        return ParameterValidator.load_and_validate(parameters_file)
 
 
 def safe_load_parameters(parameters_file: Union[str, Path]) -> Union[SimulationParameters, Dict[str, Any]]:

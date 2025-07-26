@@ -427,9 +427,23 @@ def run_experiment_builder(experiment) -> None:
         # Save parameters for this run
         from nest_elephant_tvb.orchestrator.parameters_manager import save_parameter
         
-        # Get timing parameters (use defaults if not specified)
-        begin = BackwardCompatibilityManager.get_parameter_value(parameter_set, 'begin') if hasattr(parameter_set, 'begin') else 0.0
-        end = BackwardCompatibilityManager.get_parameter_value(parameter_set, 'end') if hasattr(parameter_set, 'end') else 100.0
+        # Get timing parameters with robust error handling
+        # Priority: ExperimentBuilder settings > parameter_set values > defaults
+        if experiment.simulation_begin is not None:
+            begin = experiment.simulation_begin
+        else:
+            try:
+                begin = BackwardCompatibilityManager.get_parameter_value(parameter_set, 'begin')
+            except (AttributeError, KeyError, TypeError):
+                begin = 0.0
+            
+        if experiment.simulation_end is not None:
+            end = experiment.simulation_end
+        else:
+            try:
+                end = BackwardCompatibilityManager.get_parameter_value(parameter_set, 'end')
+            except (AttributeError, KeyError, TypeError):
+                end = 100.0
         
         save_parameter(parameter_set, str(results_path), begin, end)
         

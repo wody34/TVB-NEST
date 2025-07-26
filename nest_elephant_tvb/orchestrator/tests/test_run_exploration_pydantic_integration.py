@@ -170,9 +170,6 @@ class TestRunExplorationPydanticIntegration:
         legacy_params = BackwardCompatibilityManager._load_legacy_parameters(valid_parameter_file)
         legacy_time = time.time() - start_time
         
-        print(f"Pydantic validation time: {pydantic_time*1000:.2f}ms")
-        print(f"Legacy validation time: {legacy_time*1000:.2f}ms")
-        
         # Both should be fast (< 100ms as per requirements)
         assert pydantic_time < 0.1, f"Pydantic validation too slow: {pydantic_time*1000:.2f}ms"
         assert legacy_time < 0.1, f"Legacy validation too slow: {legacy_time*1000:.2f}ms"
@@ -200,7 +197,6 @@ class TestRunExplorationPydanticIntegration:
                 safe_load_parameters(temp_file)
             
             error_message = str(exc_info.value)
-            print(f"Error message: {error_message}")
             
             # Should contain helpful information
             assert len(error_message) > 50, "Error message should be descriptive"

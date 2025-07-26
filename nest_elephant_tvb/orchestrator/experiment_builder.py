@@ -36,6 +36,7 @@ class ExperimentBuilder:
         experiment = (ExperimentBuilder()
                      .with_base_parameters(parameter_module)
                      .with_results_path("./my_experiment/")
+                     .with_simulation_time(begin=0.0, end=200.0)
                      .explore_parameter("g", [1.0, 1.5, 2.0])
                      .explore_parameter("mean_I_ext", [0.0, 0.1, 0.2])
                      .with_validation(enabled=True)
@@ -51,6 +52,9 @@ class ExperimentBuilder:
         self._experiment_name = None
         self._description = None
         self._custom_parameter_links = {}
+        # Simulation timing parameters
+        self._begin = None
+        self._end = None
         
     def with_base_parameters(self, parameters: Union[types.ModuleType, Dict[str, Any], 'SimulationParameters']) -> 'ExperimentBuilder':
         """
@@ -92,6 +96,29 @@ class ExperimentBuilder:
         if parameter_name in self._exploration_variables:
             logging.warning(f"Overriding existing exploration for {parameter_name}")
         self._exploration_variables[parameter_name] = values
+        return self
+    
+    def with_simulation_time(self, begin: float, end: float) -> 'ExperimentBuilder':
+        """
+        Set simulation time range for the experiment.
+        
+        Args:
+            begin: Start time for simulation (in ms)
+            end: End time for simulation (in ms)
+            
+        Returns:
+            Self for method chaining
+            
+        Raises:
+            ValueError: If begin >= end or values are negative
+        """
+        if begin < 0:
+            raise ValueError(f"Begin time must be non-negative, got: {begin}")
+        if end <= begin:
+            raise ValueError(f"End time ({end}) must be greater than begin time ({begin})")
+            
+        self._begin = begin
+        self._end = end
         return self
         
     def explore_parameters(self, exploration_dict: Dict[str, List[Any]]) -> 'ExperimentBuilder':
@@ -220,7 +247,9 @@ class ExperimentBuilder:
             validation_enabled=self._validation_enabled,
             experiment_name=self._experiment_name,
             description=self._description,
-            custom_parameter_links=copy.deepcopy(self._custom_parameter_links)
+            custom_parameter_links=copy.deepcopy(self._custom_parameter_links),
+            simulation_begin=self._begin,
+            simulation_end=self._end
         )
         
     def quick_exploration(self, parameter_module, results_path: str, 
@@ -252,7 +281,8 @@ class Experiment:
     
     def __init__(self, base_parameters, results_path: str, exploration_variables: Dict[str, List[Any]],
                  validation_enabled: bool = True, experiment_name: Optional[str] = None,
-                 description: Optional[str] = None, custom_parameter_links: Optional[Dict[str, Any]] = None):
+                 description: Optional[str] = None, custom_parameter_links: Optional[Dict[str, Any]] = None,
+                 simulation_begin: Optional[float] = None, simulation_end: Optional[float] = None):
         """
         Initialize experiment with configuration.
         
@@ -264,6 +294,8 @@ class Experiment:
             experiment_name: Optional experiment name
             description: Optional experiment description
             custom_parameter_links: Optional custom parameter links
+            simulation_begin: Optional simulation start time
+            simulation_end: Optional simulation end time
         """
         self.base_parameters = base_parameters
         self.results_path = results_path
@@ -272,6 +304,8 @@ class Experiment:
         self.experiment_name = experiment_name
         self.description = description
         self.custom_parameter_links = custom_parameter_links or {}
+        self.simulation_begin = simulation_begin
+        self.simulation_end = simulation_end
         
         # Ensure results directory exists
         Path(self.results_path).mkdir(parents=True, exist_ok=True)

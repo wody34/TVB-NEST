@@ -60,29 +60,38 @@ def run(parameters_file):
 ### 2단계: 점진적 마이그레이션
 
 ```python
-# 안전한 마이그레이션을 위한 통합 레이어 사용
-from nest_elephant_tvb.orchestrator.validation import ParameterIntegration
+# 안전한 마이그레이션을 위한 호환성 레이어 사용
+from nest_elephant_tvb.orchestrator.validation import BackwardCompatibilityManager
 
 def run(parameters_file):
-    # 기존 코드와 호환되는 안전한 로딩
-    parameters = ParameterIntegration.load_parameters_safe(parameters_file)
+    # 기존 코드와 호환되는 안전한 로딩 (Pydantic validation with fallback)
+    parameters = BackwardCompatibilityManager.load_parameters_safe_dict(parameters_file)
     
     # 기존 코드 패턴 그대로 사용 가능
     co_sim = parameters['param_co_simulation']
     level_log = co_sim['level_log']  # 자동 검증됨!
+
+# 또는 기존 import 경로 그대로 사용 가능 (backward compatibility alias)
+from nest_elephant_tvb.orchestrator.validation import ParameterIntegration
+parameters = ParameterIntegration.load_parameters_safe(parameters_file)  # 동일한 기능
 ```
 
 ### 3단계: 새로운 코드에서 타입 안전성 활용
 
 ```python
 def new_feature(parameters_file):
-    from nest_elephant_tvb.orchestrator.validation import ParameterIntegration
+    from nest_elephant_tvb.orchestrator.validation import BackwardCompatibilityManager
     
     # 완전한 타입 안전성
-    params = ParameterIntegration.get_typed_parameters(parameters_file)
+    params = BackwardCompatibilityManager.get_typed_parameters(parameters_file)
     
     # IDE 자동완성 + 타입 체크
     mpi_count = params.param_co_simulation.nb_MPI_nest  # int 보장
+
+# 또는 기존 import 경로 사용 (backward compatibility)
+def alternative_new_feature(parameters_file):
+    from nest_elephant_tvb.orchestrator.validation import ParameterIntegration
+    params = ParameterIntegration.get_typed_parameters(parameters_file)  # 동일한 기능
     log_level = params.param_co_simulation.level_log    # 0-4 범위 보장
     
     if params.param_co_simulation.co_simulation:
