@@ -102,11 +102,7 @@ class SimulationParameters(BaseModel):
     @field_validator('result_path')
     @classmethod
     def validate_result_path(cls, v):
-        """Validate that result path can be created"""
-        path = Path(v)
-        try:
-            # Try to create parent directory if it doesn't exist
-            path.parent.mkdir(parents=True, exist_ok=True)
-        except (OSError, PermissionError) as e:
-            raise ValueError(f"Cannot create result directory: {e}")
-        return str(path.resolve())
+        """Validate and resolve the result path to an absolute path."""
+        # Directory creation as a side-effect of validation is best avoided.
+        # The experiment runner is responsible for creating directories.
+        return str(Path(v).resolve())

@@ -214,13 +214,14 @@ class ExperimentBuilder:
             if len(values) == 0:
                 errors.append(f"Exploration values for '{param_name}' cannot be empty")
                 
-        # Validate results path
+        # Validate results path (directory creation handled in Experiment.__init__)
         if self._results_path:
             try:
                 results_dir = Path(self._results_path)
-                results_dir.mkdir(parents=True, exist_ok=True)
+                # Only validate that the path is valid, don't create it
+                results_dir.resolve()
             except (OSError, IOError) as e:
-                errors.append(f"Cannot create results directory '{self._results_path}': {e}")
+                errors.append(f"Invalid results directory path '{self._results_path}': {e}")
                 
         return errors
         

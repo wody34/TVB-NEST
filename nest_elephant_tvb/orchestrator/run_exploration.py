@@ -447,8 +447,8 @@ def run_experiment_builder(experiment) -> None:
         
         save_parameter(parameter_set, str(results_path), begin, end)
         
-        # Run the actual simulation
-        _run_simulation_with_parameters(parameter_set, str(results_path))
+        # Run the actual simulation using the saved parameter file
+        _run_simulation_with_parameters(str(results_path))
     
     logging.info("Experiment completed successfully!")
     logging.info(f"Results saved to: {experiment.results_path}")
@@ -500,41 +500,19 @@ def run_exploration_builder(parameter_module, results_path: str,
     run_experiment_builder(experiment)
 
 
-def _run_simulation_with_parameters(parameter_set, results_path: str) -> None:
+def _run_simulation_with_parameters(results_path: str) -> None:
     """
-    Internal function to run simulation with given parameter set.
-    
-    This extracts the simulation logic from the run() function to enable
-    reuse by the Builder pattern functions.
+    Internal function to run a simulation using its pre-configured parameter file.
     
     Args:
-        parameter_set: Parameter configuration (dict or Pydantic model)
-        results_path: Results output directory
+        results_path: Results output directory containing parameter.json
     """
-    # This would contain the actual simulation execution logic
-    # For now, we'll create a simplified version that calls the existing run logic
-    
-    # Create temporary parameter file
-    temp_param_file = Path(results_path) / "temp_parameters.json"
-    
-    # Convert parameter set to dict for JSON serialization
-    if hasattr(parameter_set, 'model_dump'):
-        param_dict = parameter_set.model_dump()
-    else:
-        param_dict = parameter_set
-    
-    # Save temporary parameter file
-    import json
-    with temp_param_file.open('w', encoding='utf-8') as f:
-        json.dump(param_dict, f, indent=2, ensure_ascii=False)
-    
-    try:
-        # Use existing run function with temporary parameter file
-        run(str(temp_param_file))
-    finally:
-        # Clean up temporary file
-        if temp_param_file.exists():
-            temp_param_file.unlink()
+    parameter_file = Path(results_path) / "parameter.json"
+    if not parameter_file.is_file():
+        logging.error(f"Parameter file not found in {results_path}, skipping run.")
+        return
+    # Use existing run function with the permanent parameter file
+    run(str(parameter_file))
 
 
 if __name__ == "__main__":
