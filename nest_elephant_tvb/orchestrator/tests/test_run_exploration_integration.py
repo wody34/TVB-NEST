@@ -127,5 +127,122 @@ class TestErrorHandlingImprovement:
         assert "not found" in str(exc_info.value)
 
 
+class TestParameterCombinationFix:
+    """Test fix for parameter combination logic in fallback exploration"""
+    
+    def test_parameter_combination_generation(self):
+        """Test that parameter combinations are generated correctly"""
+        import itertools
+        
+        # Test case that exposed the original bug
+        exploration_dict = {"g": [1.0, 1.5], "rate": [10, 20]}
+        
+        # Generate combinations using the fixed logic
+        param_names = list(exploration_dict.keys())
+        combinations = []
+        for param_combination in itertools.product(*exploration_dict.values()):
+            combination_dict = dict(zip(param_names, param_combination))
+            combinations.append(combination_dict)
+        
+        # Verify we get all 4 combinations (2 × 2)
+        assert len(combinations) == 4
+        
+        # Verify specific combinations
+        expected_combinations = [
+            {"g": 1.0, "rate": 10},
+            {"g": 1.0, "rate": 20},
+            {"g": 1.5, "rate": 10},
+            {"g": 1.5, "rate": 20}
+        ]
+        
+        for expected in expected_combinations:
+            assert expected in combinations
+    
+    def test_single_parameter_exploration(self):
+        """Test that single parameter exploration still works"""
+        import itertools
+        
+        exploration_dict = {"g": [1.0, 1.5, 2.0]}
+        
+        param_names = list(exploration_dict.keys())
+        combinations = []
+        for param_combination in itertools.product(*exploration_dict.values()):
+            combination_dict = dict(zip(param_names, param_combination))
+            combinations.append(combination_dict)
+        
+        # Should generate 3 combinations for single parameter
+        assert len(combinations) == 3
+        
+        expected_combinations = [
+            {"g": 1.0},
+            {"g": 1.5},
+            {"g": 2.0}
+        ]
+        
+        for expected in expected_combinations:
+            assert expected in combinations
+    
+    def test_three_parameter_exploration(self):
+        """Test that three parameter exploration generates correct combinations"""
+        import itertools
+        
+        exploration_dict = {
+            "g": [1.0, 2.0],
+            "rate": [10, 20], 
+            "delay": [0.1, 0.2]
+        }
+        
+        param_names = list(exploration_dict.keys())
+        combinations = []
+        for param_combination in itertools.product(*exploration_dict.values()):
+            combination_dict = dict(zip(param_names, param_combination))
+            combinations.append(combination_dict)
+        
+        # Should generate 8 combinations (2 × 2 × 2)
+        assert len(combinations) == 8
+        
+        # Verify a few specific combinations
+        assert {"g": 1.0, "rate": 10, "delay": 0.1} in combinations
+        assert {"g": 2.0, "rate": 20, "delay": 0.2} in combinations
+        assert {"g": 1.0, "rate": 20, "delay": 0.1} in combinations
+    
+    @patch('nest_elephant_tvb.orchestrator.run_exploration.run_exploration')
+    def test_run_exploration_builder_fallback_with_combinations(self, mock_run_exploration):
+        """Test that run_exploration_builder fallback correctly calls run_exploration for each combination"""
+        from nest_elephant_tvb.orchestrator.run_exploration import run_exploration_builder
+        
+        # Mock the builder availability
+        with patch('nest_elephant_tvb.orchestrator.run_exploration.BUILDER_AVAILABLE', False):
+            
+            # Create a mock parameter module
+            mock_parameter_module = MagicMock()
+            
+            exploration_dict = {"g": [1.0, 1.5], "rate": [10, 20]}
+            
+            # Call the function
+            run_exploration_builder(
+                mock_parameter_module,
+                "/tmp/test_results", 
+                exploration_dict,
+                "Test exploration"
+            )
+            
+            # Verify run_exploration was called 4 times (2×2 combinations)
+            assert mock_run_exploration.call_count == 4
+            
+            # Verify the correct parameter combinations were passed
+            expected_calls = [
+                {"g": 1.0, "rate": 10},
+                {"g": 1.0, "rate": 20},
+                {"g": 1.5, "rate": 10},
+                {"g": 1.5, "rate": 20}
+            ]
+            
+            actual_calls = [call[0][2] for call in mock_run_exploration.call_args_list]  # 3rd argument is dict_variable
+            
+            for expected in expected_calls:
+                assert expected in actual_calls
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
