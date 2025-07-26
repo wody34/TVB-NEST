@@ -24,3 +24,30 @@ services:
         ln -sf /home/example/short_simulation /home/nest_elephant_tvb/short_simulation &&
         jupyter lab --ip=0.0.0.0 --port=8888 --allow-root --no-browser --notebook-dir=/home
       "
+
+  # Test runner service
+  tvb-nest-test:
+    build:
+      context: .
+      dockerfile: install/docker/Nest_TVB_2.dockerfile
+    image: tvb-nest-dev-env:latest
+    container_name: tvb-nest-test
+    volumes:
+      - .:/home
+    working_dir: /home
+    profiles:
+      - test
+    command: >
+      sh -c "
+        echo '🧪 Running TVB-NEST Enhanced Orchestrator Tests' &&
+        echo '================================================================' &&
+        python3 -m pytest nest_elephant_tvb/orchestrator/tests/ \\
+          --tb=short \\
+          --color=yes \\
+          --no-header \\
+          -ra \\
+          --strict-markers \\
+          --disable-warnings \\
+          --maxfail=5 \\
+          -v
+      "
