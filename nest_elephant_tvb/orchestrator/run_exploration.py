@@ -478,10 +478,12 @@ def run_exploration_builder(parameter_module, results_path: str,
     """
     if not BUILDER_AVAILABLE:
         logging.warning("Builder pattern not available, falling back to legacy exploration")
-        # Fallback to traditional exploration
-        for param_name, values in exploration_dict.items():
-            for value in values:
-                run_exploration(results_path, parameter_module, {param_name: value}, 0.0, 100.0)
+        # Fallback to traditional exploration with combination support
+        import itertools
+        param_names = list(exploration_dict.keys())
+        for param_combination in itertools.product(*exploration_dict.values()):
+            combination_dict = dict(zip(param_names, param_combination))
+            run_exploration(results_path, parameter_module, combination_dict, 0.0, 100.0)
         return
     
     # Create experiment using Builder pattern
