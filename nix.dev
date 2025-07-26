@@ -1,0 +1,17 @@
+#!/bin/bash
+# TVB-NEST Nix Development Environment Shortcut
+# Usage: ./nix.dev <command> [args...]
+# Examples:
+#   ./nix.dev help
+#   ./nix.dev dev
+#   ./nix.dev test
+#   ./nix.dev status
+
+# Default to help if no command provided
+COMMAND=${1:-help}
+
+# Shift to pass remaining arguments
+shift
+
+# Execute make command with proper Makefile
+exec make -f Makefile.nix.dev "$COMMAND" "$@"

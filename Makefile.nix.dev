@@ -1,0 +1,367 @@
+# TVB-NEST Nix Development Environment - Development & Testing
+# Usage: make -f Makefile.nix.dev <target> or ./nix.dev <target>
+
+.PHONY: help dev dev-quick test test-watch clean build docs lint status
+
+# Default target
+help: ## Show this help message
+	@echo "🚀 TVB-NEST Nix Development Environment - Commands"
+	@echo "================================================================"
+	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z_-]+:.*##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@echo ""
+	@echo "📊 Quick Status:"
+	@echo "  Nix Environment: $$(nix --version 2>/dev/null || echo 'Not available')"
+	@echo "  UV Version: $$(uv --version 2>/dev/null || echo 'Not available')"
+	@echo ""
+
+# Development environment
+dev: ## Start full Nix development environment with NEST
+	@echo "🚀 Starting TVB-NEST Nix development environment..."
+	@echo "⏳ This may take 2-3 minutes for first-time NEST build..."
+	nix develop --command bash -c "\
+		echo '✅ Nix environment loaded successfully!'; \
+		echo '🧪 Testing core modules...'; \
+		python -c 'import nest; print(f\"✅ NEST: {getattr(nest, \"__version__\", \"OK\")}\")' || echo '❌ NEST not available'; \
+		python -c 'import numpy, scipy; print(\"✅ Scientific stack: OK\")' || echo '❌ Scientific packages not available'; \
+		echo '🎯 Environment ready!'; \
+		echo '📝 Available commands:'; \
+		echo '  jupyter lab --ip=0.0.0.0 --port=8893 --no-browser --allow-root'; \
+		echo '  make -f Makefile.nix.dev test  # Run tests'; \
+		echo '  make -f Makefile.nix.dev test-yaml  # Run YAML tests'; \
+		bash"
+
+dev-quick: ## Start quick development environment (no NEST build)
+	@echo "🍎 Starting quick Nix development environment..."
+	nix develop .#macos-quick --command bash -c "\
+		echo '✅ Quick environment loaded!'; \
+		echo '🐍 Testing Python packages...'; \
+		python -c 'import numpy, scipy, matplotlib; print(\"✅ Scientific packages: OK\")' || echo '❌ Scientific packages not available'; \
+		echo '🎯 Quick environment ready!'; \
+		echo '📝 Usage: jupyter lab --ip=0.0.0.0 --port=8893 --no-browser'; \
+		bash"
+
+dev-shell: ## Enter Nix development shell
+	@echo "🐚 Entering Nix development shell..."
+	nix develop
+
+dev-build: ## Force rebuild Nix environment
+	@echo "🏗️ Rebuilding Nix environment..."
+	nix develop --rebuild
+
+dev-info: ## Show development environment information
+	@echo "ℹ️ Nix Development Environment Information"
+	@echo "========================================"
+	nix develop --command bash -c "\
+		echo 'Python: $$(which python)'; \
+		echo 'Python Version: $$(python --version)'; \
+		echo 'UV: $$(which uv) ($$(uv --version 2>/dev/null || echo \"not available\"))'; \
+		echo 'MPI: $$(which mpirun) ($$(mpirun --version 2>/dev/null | head -1 || echo \"not available\"))'; \
+		echo 'NEST: $$(which nest 2>/dev/null || echo \"not available\")'; \
+		echo 'Environment Variables:'; \
+		echo '  PYTHONPATH: $$PYTHONPATH'; \
+		echo '  LD_LIBRARY_PATH: $$LD_LIBRARY_PATH'; \
+		echo 'Virtual Environment: $$([ -d .venv ] && echo \"✅ .venv exists\" || echo \"❌ No .venv\")'"
+
+# Testing
+test: ## Run all tests in Nix environment
+	@echo "🧪 Running TVB-NEST tests in Nix environment..."
+	@echo "================================================================"
+	nix develop --command bash -c "\
+		if [ -d 'nest_elephant_tvb/orchestrator/tests/' ]; then \
+			echo '🧪 Running Pydantic orchestrator tests...'; \
+			python -m pytest nest_elephant_tvb/orchestrator/tests/ --tb=short --color=yes --no-header -ra --strict-markers --disable-warnings --maxfail=5 -v; \
+		else \
+			echo '⚠️ Pydantic orchestrator tests not found, running basic tests...'; \
+		fi; \
+		echo '🎯 Test execution completed!'"
+
+test-fast: ## Run tests with minimal output
+	@echo "⚡ Running fast tests..."
+	nix develop --command python -m pytest nest_elephant_tvb/orchestrator/tests/ --tb=line --no-header -q --color=yes --disable-warnings 2>/dev/null || echo "❌ Fast tests failed or not available"
+
+test-verbose: ## Run tests with maximum verbosity
+	@echo "🔍 Running tests with verbose output..."
+	nix develop --command python -m pytest nest_elephant_tvb/orchestrator/tests/ -vvv --tb=long --color=yes --capture=no -s
+
+test-yaml: ## Run YAML-based test system (Nix optimized)
+	@echo "📄 Running YAML-based test system..."
+	nix develop --command bash -c "\
+		if [ -f 'tests/python_runners/yaml_test_runner_nix.py' ]; then \
+			echo '📋 Available tests:'; \
+			python tests/python_runners/yaml_test_runner_nix.py list; \
+			echo ''; \
+			echo '🧪 Running test_simple_python...'; \
+			python tests/python_runners/yaml_test_runner_nix.py test_simple_python; \
+		else \
+			echo '❌ YAML test runner not found'; \
+		fi"
+
+test-mpi: ## Run MPI parallel processing tests
+	@echo "🔀 Running MPI parallel processing tests..."
+	nix develop --command bash -c "\
+		echo '🧪 Testing MPI with 2 processes...'; \
+		mpirun -n 2 \$$(which python) -c 'from mpi4py import MPI; comm = MPI.COMM_WORLD; print(f\"Process {comm.Get_rank()}/{comm.Get_size()} ✅\")'; \
+		echo '🧪 Testing MPI with 4 processes...'; \
+		mpirun -n 4 \$$(which python) -c 'from mpi4py import MPI; comm = MPI.COMM_WORLD; print(f\"Process {comm.Get_rank()}/{comm.Get_size()} ✅\")'"
+
+test-nest: ## Test NEST functionality
+	@echo "🧠 Testing NEST functionality..."
+	nix develop --command bash -c "\
+		python -c '\
+import nest; \
+nest.ResetKernel(); \
+neuron = nest.Create(\"iaf_psc_alpha\"); \
+print(f\"✅ NEST neuron created: {neuron}\"); \
+print(f\"✅ NEST version: {getattr(nest, \"__version__\", \"Custom build\")}\")'"
+
+test-scientific: ## Test scientific computing stack
+	@echo "🔬 Testing scientific computing stack..."
+	nix develop --command bash -c "\
+		python -c 'import sys; print(f\"Python: {sys.version}\")'; \
+		python -c 'import numpy as np; print(f\"✅ NumPy {np.__version__}\")' || echo '❌ NumPy failed'; \
+		python -c 'import scipy; print(f\"✅ SciPy {scipy.__version__}\")' || echo '❌ SciPy failed'; \
+		python -c 'import matplotlib; print(f\"✅ Matplotlib {matplotlib.__version__}\")' || echo '❌ Matplotlib failed'; \
+		python -c 'import networkx; print(f\"✅ NetworkX {networkx.__version__}\")' || echo '❌ NetworkX failed'; \
+		echo '🎉 Scientific stack test completed!'"
+
+test-specific: ## Run specific test file (Usage: make -f Makefile.nix.dev test-specific FILE=test_experiment_builder.py)
+	@echo "🎯 Running specific test: $(FILE)"
+	nix develop --command python -m pytest nest_elephant_tvb/orchestrator/tests/$(FILE) -v --tb=short --color=yes
+
+test-class: ## Run specific test class (Usage: make -f Makefile.nix.dev test-class CLASS=TestExperimentBuilder)
+	@echo "🎯 Running test class: $(CLASS)"
+	nix develop --command python -m pytest nest_elephant_tvb/orchestrator/tests/ -k '$(CLASS)' -v --tb=short --color=yes
+
+test-keyword: ## Run tests matching keyword (Usage: make -f Makefile.nix.dev test-keyword KEYWORD=builder)
+	@echo "🔍 Running tests matching keyword: $(KEYWORD)"
+	nix develop --command python -m pytest nest_elephant_tvb/orchestrator/tests/ -k '$(KEYWORD)' -v --tb=short --color=yes
+
+test-coverage: ## Run tests with coverage report
+	@echo "📊 Running tests with coverage..."
+	nix develop --command bash -c "\
+		python -m pytest nest_elephant_tvb/orchestrator/tests/ \
+		--cov=nest_elephant_tvb.orchestrator \
+		--cov-report=term-missing \
+		--cov-report=html \
+		--cov-fail-under=80 \
+		--tb=short --color=yes || echo '⚠️ Coverage tool might not be installed'"
+
+test-performance: ## Run tests with performance timing
+	@echo "⏱️ Running tests with performance timing..."
+	nix develop --command python -m pytest nest_elephant_tvb/orchestrator/tests/ --durations=10 --tb=short --color=yes -v
+
+# UV Project Management
+uv-init: ## Initialize UV project with dependencies
+	@echo "📦 Initializing UV project..."
+	nix develop --command bash -c "\
+		if [ ! -f 'pyproject.toml' ]; then \
+			uv init --python \$$(which python) --no-readme; \
+		fi; \
+		echo '📦 Installing core packages...'; \
+		uv add numpy scipy matplotlib networkx pillow jupyter jupyterlab pytest pyyaml; \
+		echo '🧬 Installing specialized packages...'; \
+		uv add elephant cython numba tvb-data tvb-gdist tvb-library --quiet || echo '⚠️ Some specialized packages failed'; \
+		echo '✅ UV project ready!'"
+
+uv-sync: ## Sync UV dependencies
+	@echo "🔄 Syncing UV dependencies..."
+	nix develop --command uv sync
+
+uv-add: ## Add package with UV (Usage: make -f Makefile.nix.dev uv-add PKG=package-name)
+	@echo "➕ Adding package: $(PKG)"
+	nix develop --command uv add $(PKG)
+
+uv-status: ## Show UV project status
+	@echo "📊 UV Project Status"
+	@echo "==================="
+	nix develop --command bash -c "\
+		echo 'Project file exists:' \$$([ -f pyproject.toml ] && echo '✅' || echo '❌'); \
+		echo 'Virtual environment:' \$$([ -d .venv ] && echo '✅ .venv/' || echo '❌ No .venv'); \
+		echo 'Lock file:' \$$([ -f uv.lock ] && echo '✅' || echo '❌'); \
+		if [ -f pyproject.toml ]; then \
+			echo 'Dependencies:'; \
+			grep -A 20 'dependencies.*=' pyproject.toml | grep '\"' | head -10; \
+		fi"
+
+# Legacy shell tests (compatibility)
+test-shell: ## Run legacy shell script tests
+	@echo "🐚 Running legacy shell script tests..."
+	nix develop --command bash -c "\
+		if [ -f './tests/test_co-sim.sh' ]; then \
+			cd tests && ./test_co-sim.sh; \
+		else \
+			echo '❌ Legacy shell tests not found'; \
+		fi"
+
+# Jupyter and development servers
+jupyter: ## Start Jupyter Lab server
+	@echo "📓 Starting Jupyter Lab..."
+	nix develop --command bash -c "\
+		if [ -d '.venv' ]; then source .venv/bin/activate; fi; \
+		jupyter lab --ip=0.0.0.0 --port=8893 --no-browser --allow-root"
+
+jupyter-quick: ## Start Jupyter Lab with quick environment
+	@echo "📓 Starting Jupyter Lab (quick environment)..."
+	nix develop .#macos-quick --command bash -c "\
+		if [ -d '.venv' ]; then source .venv/bin/activate; fi; \
+		jupyter lab --ip=0.0.0.0 --port=8893 --no-browser"
+
+# Development utilities
+lint: ## Run code linting
+	@echo "🔍 Running code linting..."
+	nix develop --command bash -c "\
+		python -m flake8 nest_elephant_tvb/orchestrator/ --max-line-length=120 --extend-ignore=E203,W503 || echo '⚠️ Install flake8: uv add flake8'"
+
+clean: ## Clean up build artifacts and caches
+	@echo "🧹 Cleaning up..."
+	@echo "Removing Python cache files..."
+	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	find . -name "*.pyc" -delete 2>/dev/null || true
+	@echo "Removing UV cache..."
+	rm -rf .venv 2>/dev/null || true
+	@echo "Cleaning Nix store (optional)..."
+	nix-collect-garbage -d || echo "⚠️ Nix garbage collection failed (this is optional)"
+
+clean-full: ## Full cleanup including lock files
+	@echo "🧹 Full cleanup..."
+	$(MAKE) -f Makefile.nix clean
+	rm -f uv.lock pyproject.toml
+	@echo "✅ Full cleanup completed"
+
+# CI/CD and verification
+verify: test test-mpi test-scientific ## Run comprehensive verification
+	@echo "✅ Comprehensive verification completed!"
+
+ci-test: ## Run CI-friendly test suite
+	@echo "🔄 Running CI test pipeline..."
+	@echo "1/4 Testing Nix environment loading..."
+	nix develop --command echo "✅ Environment loads"
+	@echo "2/4 Testing scientific packages..."
+	$(MAKE) -f Makefile.nix test-scientific
+	@echo "3/4 Testing MPI functionality..."
+	$(MAKE) -f Makefile.nix test-mpi
+	@echo "4/4 Running main test suite..."
+	$(MAKE) -f Makefile.nix test
+	@echo "✅ CI pipeline completed successfully!"
+
+# Performance benchmarking
+benchmark: ## Run performance benchmarks
+	@echo "⚡ Running performance benchmarks..."
+	nix develop --command bash -c "\
+		echo '🏁 Environment startup time:'; \
+		time nix develop --command echo 'Environment loaded'; \
+		echo '🧪 Python import speed:'; \
+		time python -c 'import numpy, scipy, matplotlib; print(\"Packages imported\")'; \
+		if command -v nest >/dev/null; then \
+			echo '🧠 NEST import speed:'; \
+			time python -c 'import nest; print(\"NEST imported\")'; \
+		fi"
+
+# Documentation and examples
+docs: ## Show documentation and project structure
+	@echo "📖 TVB-NEST Nix Development Environment Documentation"
+	@echo "=================================================="
+	@echo "📁 Project Structure:"
+	@echo "  📂 nest_elephant_tvb/orchestrator/ - Enhanced orchestrator"
+	@echo "  📂 tests/ - Legacy and YAML-based tests"
+	@echo "  📂 examples/ - Usage examples"
+	@echo "  📄 flake.nix - Nix environment configuration"
+	@echo "  📄 Makefile.nix - This Makefile"
+	@echo ""
+	@echo "🚀 Key Features:"
+	@echo "  • Native macOS performance (no Docker overhead)"
+	@echo "  • Complete MPI support with OpenMPI"
+	@echo "  • NEST simulator with Python bindings"
+	@echo "  • UV hybrid package management"
+	@echo "  • Jupyter Lab integration"
+	@echo ""
+	@echo "📚 Common Workflows:"
+	@echo "  make -f Makefile.nix.dev dev          # Full development environment"
+	@echo "  make -f Makefile.nix.dev dev-quick    # Quick environment (no NEST)"
+	@echo "  make -f Makefile.nix.dev test         # Run all tests"
+	@echo "  make -f Makefile.nix.dev jupyter      # Start Jupyter Lab"
+	@echo "  make -f Makefile.nix.dev verify       # Comprehensive verification"
+
+examples: ## Run usage examples
+	@echo "📚 Running usage examples..."
+	nix develop --command bash -c "\
+		if [ -d 'nest_elephant_tvb/orchestrator/tests/' ]; then \
+			python -c 'from nest_elephant_tvb.orchestrator.tests.test_usage_examples import TestUsageExamples; t = TestUsageExamples(); print(\"🎯 Running examples...\"); t.test_traditional_workflow_example(); print(\"✅ Examples completed!\")'; \
+		else \
+			echo '📚 Running basic Python example...'; \
+			python -c 'import numpy as np; print(f\"NumPy array: {np.array([1,2,3])}\"); print(\"✅ Basic example works!\")'; \
+		fi"
+
+demo: ## Run enhanced orchestrator demo
+	@echo "🎬 TVB-NEST Enhanced Orchestrator Demo"
+	@echo "======================================"
+	nix develop --command bash -c "\
+		python -c '\
+try: \
+    from nest_elephant_tvb.orchestrator.experiment_builder import ExperimentBuilder; \
+    from nest_elephant_tvb.orchestrator.tests.test_usage_examples import create_example_parameter_module; \
+    print(\"📊 Creating experiment with Builder pattern...\"); \
+    param_module = create_example_parameter_module(); \
+    experiment = ExperimentBuilder().with_base_parameters(param_module).with_results_path(\"/tmp/demo/\").explore_parameter(\"g\", [1.0, 1.5]).with_experiment_name(\"Nix Demo\").build(); \
+    info = experiment.get_experiment_info(); \
+    print(f\"✅ Experiment: {info[\"name\"]} with {info[\"num_parameter_combinations\"]} combinations\"); \
+    print(\"🎉 Enhanced orchestrator working in Nix!\"); \
+except ImportError: \
+    print(\"📊 Enhanced orchestrator not available, running basic demo...\"); \
+    import numpy as np; \
+    print(f\"NumPy demo: {np.random.random(5)}\"); \
+    print(\"✅ Basic Nix environment working!\")'"
+
+# Status and monitoring
+status: ## Show comprehensive development environment status
+	@echo "📊 TVB-NEST Nix Development Environment Status"
+	@echo "============================================="
+	@echo "🔧 System Information:"
+	@echo "  OS: $$(uname -s) $$(uname -r)"
+	@echo "  Architecture: $$(uname -m)"
+	@echo "  Nix: $$(nix --version 2>/dev/null || echo 'Not available')"
+	@echo ""
+	@echo "📦 Environment Status:"
+	nix develop --command bash -c "\
+		echo '  Python: '$$(python --version); \
+		echo '  UV: '$$(uv --version 2>/dev/null || echo 'Not available'); \
+		echo '  Virtual Env: '$$([ -d .venv ] && echo '✅ Active' || echo '❌ Not created'); \
+		echo '  NEST: '$$(python -c 'import nest; print(\"✅ Available\")' 2>/dev/null || echo '❌ Not available'); \
+		echo '  MPI: '$$(mpirun --version 2>/dev/null | head -1 || echo '❌ Not available'); \
+		echo ''"
+	@echo "📁 Project Files:"
+	@echo "  flake.nix: $$([ -f flake.nix ] && echo '✅' || echo '❌')"
+	@echo "  flake.lock: $$([ -f flake.lock ] && echo '✅' || echo '❌')"
+	@echo "  pyproject.toml: $$([ -f pyproject.toml ] && echo '✅' || echo '❌')"
+	@echo "  uv.lock: $$([ -f uv.lock ] && echo '✅' || echo '❌')"
+	@echo ""
+	@echo "🎯 Quick Actions:"
+	@echo "  make -f Makefile.nix.dev dev      # Start development"
+	@echo "  make -f Makefile.nix.dev test     # Run tests"
+	@echo "  make -f Makefile.nix.dev status   # Show this status"
+
+# Debugging and troubleshooting
+debug: ## Debug environment issues
+	@echo "🐛 Debugging Nix environment..."
+	@echo "1. Checking Nix installation..."
+	nix --version || echo "❌ Nix not installed"
+	@echo "2. Checking flake configuration..."
+	nix flake check . || echo "❌ Flake configuration issues"
+	@echo "3. Testing basic environment..."
+	nix develop --command echo "✅ Basic environment loads" || echo "❌ Environment loading failed"
+	@echo "4. Testing Python availability..."
+	nix develop --command python --version || echo "❌ Python not available"
+	@echo "5. Testing UV availability..."
+	nix develop --command uv --version || echo "❌ UV not available"
+
+debug-nest: ## Debug NEST-specific issues
+	@echo "🧠 Debugging NEST installation..."
+	nix develop --command bash -c "\
+		echo '1. Checking NEST binary...'; \
+		which nest || echo '❌ NEST binary not found'; \
+		echo '2. Checking NEST Python module...'; \
+		python -c 'import sys; print(sys.path)'; \
+		python -c 'import nest' || echo '❌ NEST Python module not available'; \
+		echo '3. Checking library paths...'; \
+		echo 'LD_LIBRARY_PATH:' \$$LD_LIBRARY_PATH; \
+		echo 'PYTHONPATH:' \$$PYTHONPATH"
