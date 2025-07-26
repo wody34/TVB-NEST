@@ -47,7 +47,7 @@ python tests/python_runners/yaml_test_runner_nix.py list
 python tests/python_runners/yaml_test_runner_nix.py test_simple_python
 
 # MPI parallel test (4 processes)
-mpirun -n 4 /nix/store/.../python test_mpi.py
+mpirun -n 4 $(which python) test_mpi.py
 ```
 
 ### Docker Development Environment (Alternative)
@@ -261,8 +261,8 @@ export PYTHONPATH="${nest-simulator}/${pythonEnv.sitePackages}:$PYTHONPATH"
 # Find Nix Python path
 ls /nix/store/*/bin/python* | head -1
 
-# Use full path with mpirun
-mpirun -n 4 /nix/store/.../python3-3.13.5-env/bin/python script.py
+# Use which command for dynamic path resolution
+mpirun -n 4 $(which python) script.py
 ```
 
 #### Issue 2: YAML Test Runner Path Issues  

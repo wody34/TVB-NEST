@@ -39,17 +39,11 @@
           buildInputs = with pkgs; [
             gsl readline ncurses lapack libtool 
             llvm pythonEnv openmpi
-          ] ++ (if isDarwin then [
-            # macOS specific dependencies
-            pkgs.llvmPackages.openmp
-          ] else [
-            # Linux specific dependencies  
-            pkgs.llvmPackages.openmp
-          ]);
+          ] ++ [ pkgs.llvmPackages.openmp ];
 
           cmakeFlags = [
             "-DCMAKE_INSTALL_PREFIX=${placeholder "out"}"
-            "-Dwith-mpi=ON"  # MPI 활성화
+            "-Dwith-mpi=ON"  # Enable MPI support
             "-Dwith-python=ON"
             "-Dwith-openmp=ON"
             "-Dwith-gsl=ON"
@@ -66,10 +60,6 @@
 
           preConfigure = ''
             export LLVM_CONFIG=${pkgs.llvm}/bin/llvm-config
-            export CC=${pkgs.gcc}/bin/gcc
-            export CXX=${pkgs.gcc}/bin/g++
-            export MPI_C_COMPILER=${pkgs.openmpi}/bin/mpicc
-            export MPI_CXX_COMPILER=${pkgs.openmpi}/bin/mpicxx
           '';
 
           postInstall = ''
@@ -154,7 +144,7 @@
             export PYTHONPATH="${nest-simulator}/${pythonEnv.sitePackages}:$PYTHONPATH"
             export LLVM_CONFIG=${pkgs.llvm}/bin/llvm-config
             
-            # 공통 MPI 환경 설정
+            # Common MPI environment setup
             export LD_LIBRARY_PATH="${nest-simulator}/lib:${nest-simulator}/lib/nest:${pkgs.openmpi}/lib:$LD_LIBRARY_PATH"
             export MPICC=${pkgs.openmpi}/bin/mpicc
             export MPICXX=${pkgs.openmpi}/bin/mpicxx
@@ -162,13 +152,13 @@
             ${if isDarwin then ''
               # macOS specific environment
               export OMP_NUM_THREADS=1
-              echo "🍎 macOS 환경 - MPI 활성화"
+              echo "🍎 macOS Environment - MPI Enabled"
             '' else ''
               # Linux specific environment
-              echo "🐧 Linux 환경 - 전체 MPI 지원"
+              echo "🐧 Linux Environment - Full MPI Support"
             ''}
 
-            echo "🔥 TVB-NEST 통합 환경 (${system})"
+            echo "🔥 TVB-NEST Development Environment (${system})"
             echo "▶️ Python: ${pythonEnv}/bin/python"
             echo "▶️ NEST: ${nest-simulator}/bin/nest"
 
@@ -181,8 +171,8 @@
             # 필수 패키지 설치 (에러 처리 개선)
             echo "🐍 Python 패키지 설치 중..."
             
-            # Core scientific packages
-            if ! uv add numpy scipy matplotlib networkx pillow; then
+            # Core scientific packages with Jupyter
+            if ! uv add numpy scipy matplotlib networkx pillow jupyter jupyterlab; then
               echo "❌ 기본 과학 패키지 설치 실패"
               exit 1
             fi
