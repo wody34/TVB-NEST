@@ -13,6 +13,10 @@ from pathlib import Path
 from nest_elephant_tvb.orchestrator.parameters_manager import generate_parameter,save_parameter
 from nest_elephant_tvb.orchestrator.validation.compatibility import safe_load_parameters, BackwardCompatibilityManager
 
+# Constants for fallback simulation times
+FALLBACK_BEGIN_TIME = 0.0
+FALLBACK_END_TIME = 100.0
+
 # Import Builder pattern (optional - for enhanced experiment configuration)
 try:
     from nest_elephant_tvb.orchestrator.experiment_builder import (
@@ -435,7 +439,7 @@ def run_experiment_builder(experiment) -> None:
             try:
                 begin = BackwardCompatibilityManager.get_parameter_value(parameter_set, 'begin')
             except (AttributeError, KeyError, TypeError):
-                begin = 0.0
+                begin = FALLBACK_BEGIN_TIME
             
         if experiment.simulation_end is not None:
             end = experiment.simulation_end
@@ -443,7 +447,7 @@ def run_experiment_builder(experiment) -> None:
             try:
                 end = BackwardCompatibilityManager.get_parameter_value(parameter_set, 'end')
             except (AttributeError, KeyError, TypeError):
-                end = 100.0
+                end = FALLBACK_END_TIME
         
         save_parameter(parameter_set, str(results_path), begin, end)
         
@@ -483,7 +487,7 @@ def run_exploration_builder(parameter_module, results_path: str,
         param_names = list(exploration_dict.keys())
         for param_combination in itertools.product(*exploration_dict.values()):
             combination_dict = dict(zip(param_names, param_combination))
-            run_exploration(results_path, parameter_module, combination_dict, 0.0, 100.0)
+            run_exploration(results_path, parameter_module, combination_dict, FALLBACK_BEGIN_TIME, FALLBACK_END_TIME)
         return
     
     # Create experiment using Builder pattern
