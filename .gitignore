@@ -28,6 +28,7 @@ lib/
 .vscode/
 .cursor/
 .idea/
+.kiro/
 *.swp
 *.swo
 *~

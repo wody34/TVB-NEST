@@ -2,15 +2,32 @@
 # "Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements; and to You under the Apache License, Version 2.0. "
 
 import datetime
-import os
-import sys
+import itertools
 import json
-import subprocess
 import logging
-import time
 import numpy as np
+import os
+import subprocess
+import sys
+import time
 from pathlib import Path
 from nest_elephant_tvb.orchestrator.parameters_manager import generate_parameter,save_parameter
+from nest_elephant_tvb.orchestrator.validation.compatibility import safe_load_parameters, BackwardCompatibilityManager
+
+# Constants for fallback simulation times
+FALLBACK_BEGIN_TIME = 0.0
+FALLBACK_END_TIME = 100.0
+
+# Import Builder pattern (optional - for enhanced experiment configuration)
+try:
+    from nest_elephant_tvb.orchestrator.experiment_builder import (
+        ExperimentBuilder, 
+        create_parameter_exploration_experiment,
+        create_single_run_experiment
+    )
+    BUILDER_AVAILABLE = True
+except ImportError:
+    BUILDER_AVAILABLE = False
 
 def ensure_directories(base_path, subdirs):
     """
@@ -32,7 +49,7 @@ def ensure_directories(base_path, subdirs):
             dir_path.mkdir(parents=True, exist_ok=True)
             
     except (OSError, IOError) as e:
-        print(f"Warning: Failed to create some directories: {e}")
+        logging.warning(f"Failed to create some directories: {e}")
 
 def run(parameters_file):
     '''
@@ -40,23 +57,29 @@ def run(parameters_file):
     :param parameters_file: parameters of the simulation
     :return:
     '''
-    # Load parameters using pathlib and context manager
-    param_file = Path(parameters_file)
-    with param_file.open('r', encoding='utf-8') as f:
-        parameters = json.load(f)
-
+    # 🚀 NEW: Load and validate parameters with Pydantic (with fallback)
+    # Replaces 25+ lines of manual validation with 1 line + compatibility layer
+    parameters = safe_load_parameters(parameters_file)
+    
     # Create result directories using pathlib
-    results_path = Path.cwd() / parameters['result_path']
+    # Get result path using compatibility layer
+    result_path_str = BackwardCompatibilityManager.get_parameter_value(parameters, 'result_path')
+    results_path = Path.cwd() / result_path_str
     base_dirs = ['log', 'nest', 'tvb']
     ensure_directories(results_path, base_dirs)
 
-    # parameter for the co-simulation
-    param_co_simulation = parameters['param_co_simulation']
+    # Get co-simulation parameters using compatibility layer
+    if BackwardCompatibilityManager.is_pydantic_model(parameters):
+        param_co_simulation = parameters.param_co_simulation
+        # Convert to dict for existing code compatibility (use by_alias to preserve field names)
+        param_co_simulation = param_co_simulation.model_dump(by_alias=True)
+    else:
+        param_co_simulation = parameters['param_co_simulation']
 
     # configuration of the logger
     level_log = param_co_simulation['level_log']
     logger = logging.getLogger('orchestrator')
-    fh = logging.FileHandler(results_path + '/log/orchestrator.log')
+    fh = logging.FileHandler(str(results_path / 'log' / 'orchestrator.log'))
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     fh.setFormatter(formatter)
     logger.addHandler(fh)
@@ -209,8 +232,8 @@ def run(parameters_file):
             # Second case : Only nest simulation
             if param_co_simulation['record_MPI']:
                 # translator for saving some result
-                if not os.path.exists(results_path + '/translation'):
-                    os.makedirs(results_path + '/translation')
+                translation_dir = results_path / 'translation'
+                translation_dir.mkdir(exist_ok=True)
                 end = parameters['end']
 
                 #initialise Nest before the communication
@@ -234,10 +257,10 @@ def run(parameters_file):
                 spike_detector = np.loadtxt(results_path+'/nest/spike_detector.txt',dtype=int)
 
                 # Create folder for the translation part
-                if not os.path.exists(results_path+'/translation/spike_detector/'):
-                    os.makedirs(results_path+'/translation/spike_detector/')
-                if not os.path.exists(results_path + '/translation/save/'):
-                    os.makedirs(results_path + '/translation/save/')
+                spike_detector_dir = results_path / 'translation' / 'spike_detector'
+                save_dir = results_path / 'translation' / 'save'
+                spike_detector_dir.mkdir(parents=True, exist_ok=True)
+                save_dir.mkdir(parents=True, exist_ok=True)
 
                 for id_spike_detector in spike_detector:
                     dir_path = os.path.dirname(os.path.realpath(__file__))+"/../translation/run_mpi_nest_save.sh"
@@ -339,6 +362,162 @@ def run_exploration_2D(path,parameter_default,dict_variables,begin,end):
             run_exploration(results_path,parameter_default,{name_variable_1:variable_1,name_variable_2:variable_2},begin,end)
             # except:
             #     sys.stderr.write('time: '+str(datetime.datetime.now())+' error: ERROR in simulation \n')
+
+
+# =================== Builder Pattern Integration ===================
+# Enhanced experiment configuration using the Builder pattern
+
+def run_experiment_builder(experiment) -> None:
+    """
+    Run an experiment configured using the ExperimentBuilder pattern.
+    
+    This function provides an enhanced interface for running experiments
+    with better parameter validation, metadata tracking, and result organization.
+    
+    Args:
+        experiment: Experiment object created by ExperimentBuilder
+        
+    Example:
+        # Create experiment using Builder pattern
+        experiment = (ExperimentBuilder()
+                     .with_base_parameters(parameter_module)
+                     .with_results_path("./my_experiment/")
+                     .explore_parameter("g", [1.0, 1.5, 2.0])
+                     .with_experiment_name("G parameter exploration")
+                     .build())
+        
+        # Run the experiment
+        run_experiment_builder(experiment)
+    """
+    if not BUILDER_AVAILABLE:
+        raise ImportError("Builder pattern not available. Install Pydantic for enhanced experiment features.")
+    
+    logging.info(f"Running experiment: {experiment.experiment_name or 'Unnamed experiment'}")
+    
+    # Save experiment metadata
+    experiment.save_experiment_metadata()
+    
+    # Get experiment info for logging
+    experiment_info = experiment.get_experiment_info()
+    logging.info(f"Total parameter combinations: {experiment_info['num_parameter_combinations']}")
+    logging.info(f"Results path: {experiment_info['results_path']}")
+    
+    # Generate all parameter sets
+    parameter_sets = experiment.generate_parameter_sets()
+    
+    # Run simulation for each parameter set
+    for i, parameter_set in enumerate(parameter_sets):
+        logging.info(f"Running simulation {i+1}/{len(parameter_sets)}")
+        
+        # Create unique results path for this parameter combination
+        if len(parameter_sets) > 1:
+            results_path = Path(experiment.results_path) / f"run_{i+1:03d}"
+        else:
+            results_path = Path(experiment.results_path)
+            
+        results_path.mkdir(parents=True, exist_ok=True)
+        
+        # Update parameter set with specific results path
+        if hasattr(parameter_set, 'model_dump'):
+            # Pydantic model - need to update through reconstruction
+            param_dict = parameter_set.model_dump()
+            param_dict['result_path'] = str(results_path) + "/"
+            # Reconstruct parameter set with new path
+            from nest_elephant_tvb.orchestrator.validation.validators import ParameterValidator
+            parameter_set = ParameterValidator.validate_dict(param_dict)
+        else:
+            # Dictionary - direct update
+            parameter_set['result_path'] = str(results_path) + "/"
+        
+        # Save parameters for this run
+        from nest_elephant_tvb.orchestrator.parameters_manager import save_parameter
+        
+        # Get timing parameters with robust error handling
+        # Priority: ExperimentBuilder settings > parameter_set values > defaults
+        if experiment.simulation_begin is not None:
+            begin = experiment.simulation_begin
+        else:
+            try:
+                begin = BackwardCompatibilityManager.get_parameter_value(parameter_set, 'begin')
+            except (AttributeError, KeyError, TypeError):
+                begin = FALLBACK_BEGIN_TIME
+            
+        if experiment.simulation_end is not None:
+            end = experiment.simulation_end
+        else:
+            try:
+                end = BackwardCompatibilityManager.get_parameter_value(parameter_set, 'end')
+            except (AttributeError, KeyError, TypeError):
+                end = FALLBACK_END_TIME
+        
+        save_parameter(parameter_set, str(results_path), begin, end)
+        
+        # Run the actual simulation using the saved parameter file
+        _run_simulation_with_parameters(str(results_path))
+    
+    logging.info("Experiment completed successfully!")
+    logging.info(f"Results saved to: {experiment.results_path}")
+
+
+def run_exploration_builder(parameter_module, results_path: str, 
+                           exploration_dict: dict, experiment_name: str = None) -> None:
+    """
+    Enhanced parameter exploration using Builder pattern.
+    
+    This is a convenience function that combines the Builder pattern with
+    the traditional parameter exploration workflow.
+    
+    Args:
+        parameter_module: Base parameter module object
+        results_path: Output directory path
+        exploration_dict: Dictionary of parameters to explore
+        experiment_name: Optional experiment name
+        
+    Example:
+        run_exploration_builder(
+            parameter_module=test_nest,
+            results_path="./my_exploration/",
+            exploration_dict={"g": [1.0, 1.5, 2.0], "mean_I_ext": [0.0, 0.1]},
+            experiment_name="Parameter sensitivity analysis"
+        )
+    """
+    if not BUILDER_AVAILABLE:
+        logging.warning("Builder pattern not available, falling back to legacy exploration")
+        # Fallback to traditional exploration with combination support
+        param_names = list(exploration_dict.keys())
+        for param_combination in itertools.product(*exploration_dict.values()):
+            combination_dict = dict(zip(param_names, param_combination))
+            run_exploration(results_path, parameter_module, combination_dict, FALLBACK_BEGIN_TIME, FALLBACK_END_TIME)
+        return
+    
+    # Create experiment using Builder pattern
+    builder = ExperimentBuilder()
+    experiment = (builder
+                  .with_base_parameters(parameter_module)
+                  .with_results_path(results_path)
+                  .explore_parameters(exploration_dict)
+                  .with_experiment_name(experiment_name)
+                  .with_validation(enabled=True)
+                  .build())
+    
+    # Run the experiment
+    run_experiment_builder(experiment)
+
+
+def _run_simulation_with_parameters(results_path: str) -> None:
+    """
+    Internal function to run a simulation using its pre-configured parameter file.
+    
+    Args:
+        results_path: Results output directory containing parameter.json
+    """
+    parameter_file = Path(results_path) / "parameter.json"
+    if not parameter_file.is_file():
+        logging.error(f"Parameter file not found in {results_path}, skipping run.")
+        return
+    # Use existing run function with the permanent parameter file
+    run(str(parameter_file))
+
 
 if __name__ == "__main__":
     if len(sys.argv)==2:
