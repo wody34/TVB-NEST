@@ -656,6 +656,30 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 ## Git Workflow and Fork Management
 
+### Commit Message Guidelines
+
+**Structure and Style**:
+- **Keep messages concise and focused** - avoid excessive detail or verbose explanations
+- **Standard format**: `type: brief description` followed by bullet points for key changes
+- **Exclude unnecessary elements**: 
+  - No Co-Authored-By tags unless explicitly requested
+  - No emoji or decorative elements 
+  - No "Generated with Claude Code" signatures
+- **Focus on practical impact**: What changed and why, not implementation details
+
+**Example Good Commit**:
+```
+fix: Improve code maintainability with named constants and shell quoting
+
+**Code Quality Improvements:**
+- Replace hardcoded values with named constants
+- Fix shell quoting issue in Makefile demo target
+
+**Files Modified:**
+- run_exploration.py: Added named constants
+- Makefile: Fixed shell quoting
+```
+
 ### Fork-Based Development Setup
 
 **Repository Configuration**:
