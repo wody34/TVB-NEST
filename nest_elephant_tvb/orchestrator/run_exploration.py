@@ -2,13 +2,14 @@
 # "Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements; and to You under the Apache License, Version 2.0. "
 
 import datetime
-import os
-import sys
+import itertools
 import json
-import subprocess
 import logging
-import time
 import numpy as np
+import os
+import subprocess
+import sys
+import time
 from pathlib import Path
 from nest_elephant_tvb.orchestrator.parameters_manager import generate_parameter,save_parameter
 from nest_elephant_tvb.orchestrator.validation.compatibility import safe_load_parameters, BackwardCompatibilityManager
@@ -483,7 +484,6 @@ def run_exploration_builder(parameter_module, results_path: str,
     if not BUILDER_AVAILABLE:
         logging.warning("Builder pattern not available, falling back to legacy exploration")
         # Fallback to traditional exploration with combination support
-        import itertools
         param_names = list(exploration_dict.keys())
         for param_combination in itertools.product(*exploration_dict.values()):
             combination_dict = dict(zip(param_names, param_combination))
