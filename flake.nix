@@ -2,7 +2,7 @@
   description = "TVB-NEST co-simulation framework with improved Nix configuration";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-23.11";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -14,7 +14,7 @@
         # Platform-specific configuration
         isDarwin = pkgs.stdenv.isDarwin;
         pythonLibExt = if isDarwin then "dylib" else "so";
-        pythonVersion = pkgs.python3.pythonVersion;
+        pythonVersion = pkgs.python39.pythonVersion;
         
         nestSrc = builtins.fetchGit {
           url = "https://github.com/sdiazpier/nest-simulator";
@@ -23,7 +23,7 @@
         };
 
         # Core Python packages that should be available system-wide
-        pythonEnv = pkgs.python3.withPackages (ps: with ps; [
+        pythonEnv = pkgs.python39.withPackages (ps: with ps; [
           numpy scipy cython mpi4py pip setuptools wheel
         ]);
 
@@ -125,7 +125,7 @@
           # Scientific libraries
           gsl lapack libtool readline ncurses llvm
           # Development utilities
-          jq htop procps wget curl uv
+          jq htop procps wget curl
           # Python
           pythonEnv
         ];
@@ -162,6 +162,13 @@
             echo "▶️ Python: ${pythonEnv}/bin/python"
             echo "▶️ NEST: ${nest-simulator}/bin/nest"
 
+            # UV 설치 (curl을 통해)
+            if ! command -v uv &> /dev/null; then
+              echo "📦 UV 설치 중..."
+              curl -LsSf https://astral.sh/uv/install.sh | sh
+              export PATH="$HOME/.cargo/bin:$PATH"
+            fi
+
             # UV 프로젝트 초기화 (더 안전하게)
             if [ ! -f "pyproject.toml" ]; then
               echo "📦 UV 프로젝트 초기화"  
@@ -172,16 +179,16 @@
             echo "🐍 Python 패키지 설치 중..."
             
             # Core scientific packages with Jupyter
-            if ! uv add numpy scipy matplotlib networkx pillow jupyter jupyterlab; then
+            if ! uv add --system numpy scipy matplotlib networkx pillow jupyter jupyterlab; then
               echo "❌ 기본 과학 패키지 설치 실패"
               exit 1
             fi
             
             # Specialized packages (optional)
-            uv add pytest pyyaml numba>=0.61.0 elephant cython --quiet || echo "⚠️ 선택적 패키지 일부 설치 실패"
+            uv add --system pytest pyyaml numba>=0.61.0 elephant cython --quiet || echo "⚠️ 선택적 패키지 일부 설치 실패"
             
             # TVB packages (may fail, that's ok)
-            uv add tvb-data tvb-gdist tvb-library --quiet || echo "⚠️ TVB 패키지 설치 실패 (수동 설치 필요할 수 있음)"
+            uv add --system tvb-data tvb-gdist tvb-library --quiet || echo "⚠️ TVB 패키지 설치 실패 (수동 설치 필요할 수 있음)"
 
             # 가상환경 활성화
             if [ -d ".venv" ]; then
@@ -224,50 +231,31 @@ except ImportError as e:
         # macOS 전용 빠른 개발 환경
         devShells.macos-quick = pkgs.mkShell {
           buildInputs = with pkgs; [
-            pythonEnv uv cmake pkg-config gsl lapack llvm
+            pythonEnv cmake pkg-config gsl lapack llvm
             jq htop wget curl
           ];
           shellHook = ''
             echo "🍎 macOS 빠른 개발 환경 (NEST 빌드 없음)"
             echo "▶️ Python 패키지 개발 및 테스트용"
             
+            # UV 설치 (curl을 통해)
+            if ! command -v uv &> /dev/null; then
+              echo "📦 UV 설치 중..."
+              curl -LsSf https://astral.sh/uv/install.sh | sh
+              export PATH="$HOME/.cargo/bin:$PATH"
+            fi
+            
             if [ ! -f "pyproject.toml" ]; then
               uv init --python ${pythonEnv}/bin/python --no-readme
             fi
             
-            uv add numpy scipy matplotlib jupyter jupyterlab networkx
+            uv add --system numpy scipy matplotlib jupyter jupyterlab networkx
             
             if [ -d ".venv" ]; then
               source .venv/bin/activate
               echo "✅ 빠른 환경 준비 완료"
             fi
           '';
-        };
-
-        # Docker 이미지 (Linux만)
-        packages = if isDarwin then {} else {
-          dockerImage = pkgs.dockerTools.buildLayeredImage {
-            name = "tvb-nest-nix";
-            tag = "latest";
-            contents = [
-              nest-simulator pkgs.openmpi pkgs.bash pkgs.coreutils 
-              pkgs.findutils pkgs.gnugrep pkgs.gnused pkgs.gawk
-              pkgs.htop pkgs.procps pkgs.jq pkgs.uv pythonEnv
-            ] ++ commonTools;
-            
-            config = {
-              Env = [
-                "PATH=${nest-simulator}/bin:${pkgs.uv}/bin:${pythonEnv}/bin:${pkgs.openmpi}/bin:/bin"
-                "LD_LIBRARY_PATH=${nest-simulator}/lib:${nest-simulator}/lib/nest:${pkgs.openmpi}/lib"
-                "PYTHONPATH=${nest-simulator}/${pythonEnv.sitePackages}"
-                "LLVM_CONFIG=${pkgs.llvm}/bin/llvm-config"
-                "MPICC=${pkgs.openmpi}/bin/mpicc"
-                "MPICXX=${pkgs.openmpi}/bin/mpicxx"
-              ];
-              WorkingDir = "/home";
-              Cmd = [ "${pkgs.bash}/bin/bash" ];
-            };
-          };
         };
       }
     );
