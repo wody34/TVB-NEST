@@ -21,8 +21,8 @@ def test_module_imports():
         ('scipy', 'SciPy'), 
         ('matplotlib', 'Matplotlib'),
         ('elephant', 'Elephant'),
-        ('networkx', 'NetworkX'),
-        ('pandas', 'Pandas'),
+        ('tvb', 'TVB'),
+        ('numba', 'Numba')
     ]
     
     for module_name, display_name in critical_modules:
@@ -36,9 +36,8 @@ def test_module_imports():
     
     # Optional imports
     optional_modules = [
-        ('tvb', 'TVB'),
-        ('numba', 'Numba'),
-        ('elephant', 'Elephant')
+        ('networkx', 'NetworkX'),
+        ('pandas', 'Pandas'),
     ]
     
     for module_name, display_name in optional_modules:

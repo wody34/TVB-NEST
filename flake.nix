@@ -174,12 +174,14 @@
               
               # Test basic import (may fail due to missing runtime dependencies, but worth trying)
               ${pythonEnv}/bin/python -c "
+import sys
 try:
     import nest
     print('✅ NEST Python module import successful')
 except Exception as e:
     print(f'⚠️ NEST Python module import failed: {e}')
     print('This may be expected due to missing runtime libraries')
+    sys.exit(1)
 " || echo "⚠️ Python import test completed with warnings"
             else
               echo "❌ NEST Python module files not found"
