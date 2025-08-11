@@ -40,7 +40,7 @@
         
         # Package lists for UV installation
         packageLists = {
-          core = "'numpy>=2.2' scipy matplotlib networkx pillow 'numba>=0.61.0' elephant ";
+          core = "'numpy>=2.2' scipy matplotlib networkx pillow 'numba>=0.61.0' elephant";
           jupyter = "jupyter jupyterlab";
           optional = "pytest pyyaml cython";
           tvb = "tvb-data tvb-gdist tvb-library";
@@ -245,38 +245,43 @@ except Exception as e:
         
         fixMPI4PyCompatibility = ''
           # Fix mpi4py compatibility by linking to Nix's version
-          if [ -d ".venv" ]; then
-            VENV_SITE_PACKAGES=".venv/lib/python${pythonVersion}/site-packages"
-            NIX_MPI4PY="${pythonEnv}/${pythonEnv.sitePackages}/mpi4py"
-            
-            if [ -d "$NIX_MPI4PY" ] && [ -d "$VENV_SITE_PACKAGES" ]; then
-              echo "🔧 Fixing mpi4py compatibility..."
-              # Remove UV's mpi4py if it exists
-              if rm -rf "$VENV_SITE_PACKAGES/mpi4py" 2>/dev/null; then
-                # Create symlink to Nix's mpi4py
-                if ln -sf "$NIX_MPI4PY" "$VENV_SITE_PACKAGES/mpi4py"; then
-                  echo "🔗 Created symlink to Nix's mpi4py"
-                  # Verify symlink was created successfully
-                  if [ -L "$VENV_SITE_PACKAGES/mpi4py" ]; then
-                    echo "✅ mpi4py compatibility fix verified"
-                  else
-                    echo "❌ mpi4py symlink verification failed"
-                    exit 1
-                  fi
-                else
-                  echo "❌ Failed to create mpi4py symlink"
-                  exit 1
-                fi
-              else
-                echo "❌ Failed to remove existing mpi4py"
-                exit 1
-              fi
-            else
-              echo "⚠️ Could not create mpi4py symlink - missing directories"
-              echo "  NIX_MPI4PY: $NIX_MPI4PY (exists: $([ -d "$NIX_MPI4PY" ] && echo yes || echo no))"
-              echo "  VENV_SITE_PACKAGES: $VENV_SITE_PACKAGES (exists: $([ -d "$VENV_SITE_PACKAGES" ] && echo yes || echo no))"
+          if [ ! -d ".venv" ]; then
+            return 0
+          fi
+          
+          VENV_SITE_PACKAGES=".venv/lib/python${pythonVersion}/site-packages"
+          NIX_MPI4PY="${pythonEnv}/${pythonEnv.sitePackages}/mpi4py"
+          
+          if ! [ -d "$NIX_MPI4PY" ] || ! [ -d "$VENV_SITE_PACKAGES" ]; then
+            echo "⚠️ Could not create mpi4py symlink - missing directories"
+            echo "  NIX_MPI4PY: $NIX_MPI4PY (exists: $([ -d "$NIX_MPI4PY" ] && echo yes || echo no))"
+            echo "  VENV_SITE_PACKAGES: $VENV_SITE_PACKAGES (exists: $([ -d "$VENV_SITE_PACKAGES" ] && echo yes || echo no))"
+            return 0
+          fi
+          
+          echo "🔧 Fixing mpi4py compatibility..."
+          
+          # Remove UV's mpi4py if it exists
+          if [ -e "$VENV_SITE_PACKAGES/mpi4py" ] || [ -L "$VENV_SITE_PACKAGES/mpi4py" ]; then
+            if ! rm -rf "$VENV_SITE_PACKAGES/mpi4py"; then
+              echo "❌ Failed to remove existing mpi4py"
+              exit 1
             fi
           fi
+          
+          # Create symlink to Nix's mpi4py
+          if ! ln -sf "$NIX_MPI4PY" "$VENV_SITE_PACKAGES/mpi4py"; then
+            echo "❌ Failed to create mpi4py symlink"
+            exit 1
+          fi
+          echo "🔗 Created symlink to Nix's mpi4py"
+          
+          # Verify symlink was created successfully
+          if ! [ -L "$VENV_SITE_PACKAGES/mpi4py" ]; then
+            echo "❌ mpi4py symlink verification failed"
+            exit 1
+          fi
+          echo "✅ mpi4py compatibility fix verified"
         '';
         
         installPythonPackages = withJupyter: ''
@@ -301,10 +306,10 @@ except Exception as e:
           ''}
           
           # Specialized packages (optional)
-          uv add ${packageLists.optional} "${validatedConfig.numbaVersion}" --quiet || echo "⚠️ Some optional packages failed to install"
+          uv add ${packageLists.optional} "${validatedConfig.numbaVersion}" || echo "⚠️ Some optional packages failed to install"
           
           # TVB packages (may fail, that's ok)
-          uv add ${packageLists.tvb} --quiet || echo "⚠️ TVB packages installation failed (manual installation may be required)"
+          uv add ${packageLists.tvb} || echo "⚠️ TVB packages installation failed (manual installation may be required)"
         '';
         
         activateEnvironment = ''
@@ -363,9 +368,7 @@ except Exception as e:
 
         # Helper function to create shell environments
         mkDevShell = withJupyter: pkgs.mkShell {
-          buildInputs = commonTools ++ [ nest-simulator ] ++ (
-            if isDarwin then [] else [ pkgs.openmpi ]
-          );
+          buildInputs = commonTools ++ [ nest-simulator pkgs.openmpi ];
           
           # Shell metadata
           name = if withJupyter then "tvb-nest-jupyter" else "tvb-nest";

@@ -6,7 +6,7 @@ This directory contains Nix-specific installation guides and configuration for t
 
 - `../../flake.nix` - Main Nix flake configuration
 - `../../flake.lock` - Lock file with pinned dependencies  
-- `../../tests/test_module_imports.py` - Python module import testing script
+- `test_module_imports.py` - Python module import testing script
 - `README.md` - This installation guide
 
 ## Installation

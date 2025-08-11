@@ -1,22 +1,19 @@
 [project]
 name = "tvb-nest"
 version = "0.1.0"
-description = "TVB-NEST co-simulation framework: Multi-scale brain modeling coupling The Virtual Brain (TVB) with NEST neural simulator via MPI"
-requires-python = ">=3.11"
+description = "Add your description here"
+requires-python = ">=3.13"
 dependencies = [
     "cython>=3.1.2",
-    "elephant>=1.1.1",
-    "jupyter>=1.1.1",
-    "jupyterlab>=4.4.5",
-    "matplotlib>=3.10.3",
-    "mpi4py>=4.1.0",
+    "elephant>=1.0.0",
+    "matplotlib>=3.10.5",
     "networkx>=3.5",
-    "numba>=0.61.2",
-    "numpy>=1.26.4",
+    "numba>=0.61.0",
+    "numpy>=2.2",
     "pillow>=11.3.0",
     "pytest>=8.4.1",
     "pyyaml>=6.0.2",
-    "scipy>=1.16.0",
+    "scipy>=1.16.1",
     "tvb-data>=3.0.0",
     "tvb-gdist>=2.9.2",
     "tvb-library>=2.10.0",

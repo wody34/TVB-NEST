@@ -4,6 +4,7 @@ Module import testing script for TVB-NEST environment.
 Tests critical and optional module imports with detailed error reporting.
 """
 import sys
+import importlib
 
 def test_module_imports():
     """Test critical and optional module imports."""
@@ -23,7 +24,7 @@ def test_module_imports():
     
     for module_name, display_name in critical_modules:
         try:
-            module = __import__(module_name)
+            module = importlib.import_module(module_name)
             version = getattr(module, '__version__', 'OK')
             print(f'✅ {display_name}: {version}')
         except ImportError as e:
@@ -39,7 +40,7 @@ def test_module_imports():
     
     for module_name, display_name in optional_modules:
         try:
-            module = __import__(module_name)
+            module = importlib.import_module(module_name)
             version = getattr(module, '__version__', 'OK')
             print(f'✅ {display_name}: {version}')
         except ImportError as e:
