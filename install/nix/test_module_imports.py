@@ -19,7 +19,10 @@ def test_module_imports():
         ('nest', 'NEST simulator'),
         ('numpy', 'NumPy'),
         ('scipy', 'SciPy'), 
-        ('matplotlib', 'Matplotlib')
+        ('matplotlib', 'Matplotlib'),
+        ('elephant', 'Elephant'),
+        ('networkx', 'NetworkX'),
+        ('pandas', 'Pandas'),
     ]
     
     for module_name, display_name in critical_modules:

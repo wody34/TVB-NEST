@@ -2,7 +2,7 @@
   description = "TVB-NEST: Multi-scale brain modeling with NEST neural simulator and The Virtual Brain platform. Features MPI support, UV+Nix hybrid package management.";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -13,7 +13,6 @@
         # Configuration constants with validation
         config = {
           jupyterPort = "8893";
-          numbaVersion = "numba>=0.61.0";
 
           nestRepo = {
             url = "https://github.com/sdiazpier/nest-simulator";
@@ -40,7 +39,7 @@
         
         # Package lists for UV installation
         packageLists = {
-          core = "'numpy>=2.2' scipy matplotlib networkx pillow 'numba>=0.61.0' elephant";
+          core = "'numpy>=2.2' 'scipy<1.14.0' matplotlib networkx pillow 'numba>=0.61.0' 'elephant>=0.15.0' pandas";
           jupyter = "jupyter jupyterlab";
           optional = "pytest pyyaml cython";
           tvb = "tvb-data tvb-gdist tvb-library";
@@ -56,12 +55,9 @@
         # Core Python packages that should be available system-wide
         pythonEnv = pkgs.python3.withPackages (ps: with ps; [
           # System-level packages for NEST compilation and MPI
-          numpy scipy matplotlib cython mpi4py 
+          numpy cython mpi4py 
           # Package management tools
           pip setuptools wheel
-          # Scientific packages
-          networkx pillow
-          # Optional: Add elephant if available in nixpkgs
         ]);
 
         nest-simulator = pkgs.stdenv.mkDerivation rec {
@@ -306,7 +302,7 @@ except Exception as e:
           ''}
           
           # Specialized packages (optional)
-          uv add ${packageLists.optional} "${validatedConfig.numbaVersion}" || echo "⚠️ Some optional packages failed to install"
+          uv add ${packageLists.optional} || echo "⚠️ Some optional packages failed to install"
           
           # TVB packages (may fail, that's ok)
           uv add ${packageLists.tvb} || echo "⚠️ TVB packages installation failed (manual installation may be required)"
