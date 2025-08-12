@@ -1,7 +1,7 @@
 # TVB-NEST Nix Development Environment - Development & Testing
 # Usage: make -f Makefile.nix.dev <target> or ./nix.dev <target>
 
-.PHONY: help dev dev-quick test test-watch clean build docs lint status
+.PHONY: help dev test test-watch clean build docs lint status
 
 # Default target
 help: ## Show this help message
@@ -30,15 +30,7 @@ dev: ## Start full Nix development environment with NEST
 		echo '  make -f Makefile.nix.dev test-yaml  # Run YAML tests'; \
 		bash"
 
-dev-quick: ## Start quick development environment (no NEST build)
-	@echo "🍎 Starting quick Nix development environment..."
-	nix develop .#macos-quick --command bash -c "\
-		echo '✅ Quick environment loaded!'; \
-		echo '🐍 Testing Python packages...'; \
-		python -c 'import numpy, scipy, matplotlib; print(\"✅ Scientific packages: OK\")' || echo '❌ Scientific packages not available'; \
-		echo '🎯 Quick environment ready!'; \
-		echo '📝 Usage: jupyter lab --ip=0.0.0.0 --port=8893 --no-browser'; \
-		bash"
+
 
 dev-shell: ## Enter Nix development shell
 	@echo "🐚 Entering Nix development shell..."
@@ -200,11 +192,7 @@ jupyter: ## Start Jupyter Lab server
 		if [ -d '.venv' ]; then source .venv/bin/activate; fi; \
 		jupyter lab --ip=0.0.0.0 --port=8893 --no-browser --allow-root"
 
-jupyter-quick: ## Start Jupyter Lab with quick environment
-	@echo "📓 Starting Jupyter Lab (quick environment)..."
-	nix develop .#macos-quick --command bash -c "\
-		if [ -d '.venv' ]; then source .venv/bin/activate; fi; \
-		jupyter lab --ip=0.0.0.0 --port=8893 --no-browser"
+
 
 # Development utilities
 lint: ## Run code linting
@@ -277,7 +265,6 @@ docs: ## Show documentation and project structure
 	@echo ""
 	@echo "📚 Common Workflows:"
 	@echo "  make -f Makefile.nix.dev dev          # Full development environment"
-	@echo "  make -f Makefile.nix.dev dev-quick    # Quick environment (no NEST)"
 	@echo "  make -f Makefile.nix.dev test         # Run all tests"
 	@echo "  make -f Makefile.nix.dev jupyter      # Start Jupyter Lab"
 	@echo "  make -f Makefile.nix.dev verify       # Comprehensive verification"

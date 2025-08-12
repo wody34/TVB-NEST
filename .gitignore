@@ -69,11 +69,18 @@ nest_elephant_tvb/short_simulation
 *.temp
 *.bak
 *.backup
-*~
 *.orig
 *.rej
+*~
+
 
 # Build artifacts
 dist/
 build/
 *.egg-info/
+
+# UV artifacts
+.venv
+pyproject.toml
+uv.lock
+.python-version
