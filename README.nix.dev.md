@@ -8,13 +8,10 @@ Complete Nix-based development environment for TVB-NEST co-simulation framework 
 # 1. Start development environment (full NEST build)
 ./nix.dev dev
 
-# 2. Or start quick environment (no NEST build)
-./nix.dev dev-quick
-
-# 3. Run tests
+# 2. Run tests
 ./nix.dev test
 
-# 4. Check status
+# 3. Check status
 ./nix.dev status
 ```
 
@@ -22,7 +19,6 @@ Complete Nix-based development environment for TVB-NEST co-simulation framework 
 
 ### Development Environment
 - `./nix.dev dev` - Full development environment with NEST (2-3 min first time)
-- `./nix.dev dev-quick` - Quick environment without NEST build (~30 sec)
 - `./nix.dev dev-shell` - Enter Nix development shell
 - `./nix.dev dev-info` - Show environment details
 - `./nix.dev jupyter` - Start Jupyter Lab server
@@ -190,8 +186,8 @@ Sample output:
 # Full environment (with NEST)
 nix develop
 
-# Quick environment (no NEST)  
-nix develop .#macos-quick
+# With Jupyter support
+nix develop .#with-jupyter
 
 # Force rebuild
 ./nix.dev dev-build

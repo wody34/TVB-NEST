@@ -24,7 +24,7 @@
         # Configuration validation
         validateConfig = config:
           let
-            portNum = pkgs.lib.toInt config.jupyterPort;
+            portNum = pkgs.lib.toInt (toString config.jupyterPort);
             validPort = portNum >= 1024 && portNum <= 65535;
             validUrl = pkgs.lib.hasPrefix "https://github.com/" config.nestRepo.url;
             validRev = builtins.stringLength config.nestRepo.rev == 40; # Git SHA length
