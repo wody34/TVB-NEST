@@ -71,6 +71,8 @@ nest_elephant_tvb/short_simulation
 *.backup
 *.orig
 *.rej
+*~
+
 
 # Build artifacts
 dist/
@@ -82,4 +84,3 @@ build/
 pyproject.toml
 uv.lock
 .python-version
-main.py
